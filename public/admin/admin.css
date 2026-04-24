@@ -91,14 +91,16 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* =============== Shell (sidebar + page) =============== */
 .admin-shell {
-  position: fixed; inset: 0;
-  display: grid; grid-template-columns: 240px 1fr;
-  z-index: 1;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 240px;
+  z-index: 10;
 }
 .sidebar {
   background: var(--sidebar-bg); color: var(--sidebar-ink);
   padding: 28px 0; overflow-y: auto;
   display: flex; flex-direction: column;
+  height: 100%;
 }
 .sidebar .brand-box { padding: 0 28px 28px; border-bottom: 1px solid #302d27; }
 .sidebar .brand-box .brand-mark {
@@ -379,8 +381,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .order-body { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
-  .admin-shell { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
+  .admin-shell { display: none; }
   .page { margin-left: 0; padding: 20px 16px 40px; }
   .page-head { flex-direction: column; align-items: flex-start; }
   .admin-table { font-size: 12px; }
