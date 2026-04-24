@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>後台登入 · YEBUDA</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body class="login-body">
+<main class="login-card">
+  <div class="brand-mark">YEBUDA</div>
+  <div class="brand-sub">ADMIN · SEOUL · EST. 2022</div>
+  <h1>後台登入</h1>
+  <form id="f" autocomplete="on">
+    <label>管理員密碼</label>
+    <input type="password" name="password" required autofocus>
+    <button type="submit">登入 · SIGN IN</button>
+    <div id="err" class="err"></div>
+  </form>
+  <p class="hint">預設密碼 <code>yebuda2026</code> · 可透過 <code>ADMIN_PASSWORD</code> 環境變數修改</p>
+  <a href="/" class="back">← 返回前台</a>
+</main>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('err');
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: fd.get('password') })
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || '登入失敗');
+    }
+    location.href = '/admin/';
+  } catch (err) { errEl.textContent = err.message; }
+});
+</script>
+</body>
+</html>

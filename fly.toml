@@ -1,0 +1,32 @@
+app = "yebuda-shop"
+primary_region = "nrt"
+
+[build]
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  ECPAY_ENV = "stage"
+  ECPAY_MERCHANT_ID = "3002607"
+  ECPAY_HASH_KEY = "pwFHCqoQZGmho4w6"
+  ECPAY_HASH_IV = "EkRm7iFT261dpevs"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "yebuda_data"
+  destination = "/app/data"
+
+[[mounts]]
+  source = "yebuda_uploads"
+  destination = "/app/uploads"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

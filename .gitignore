@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+.DS_Store
+npm-debug.log
+# Runtime storage (keep shape; actual data lives on volume/disk in prod)
+data/carts.json
+data/orders.json
+uploads/*
+!uploads/.gitkeep
+*.log

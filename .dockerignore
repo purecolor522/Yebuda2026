@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.local
+data/carts.json
+data/orders.json
+uploads/*
+!uploads/.gitkeep
+.git
+.gitignore
+npm-debug.log
+*.log
+.DS_Store

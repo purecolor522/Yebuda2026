@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品管理 · YEBUDA Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div id="shell"></div>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>商品管理</h1>
+      <p class="crumbs">Products · <span id="count">0</span> 件</p>
+    </div>
+    <div class="head-actions">
+      <input type="search" id="search" placeholder="搜尋名稱或編號..." class="inp-search">
+      <select id="filter-cat" class="inp-select">
+        <option value="all">全部分類</option>
+        <option value="outer">OUTER 外套</option>
+        <option value="blouse">BLOUSE 襯衫</option>
+        <option value="tee">TEE 針織T</option>
+        <option value="knit">KNIT 毛衣</option>
+        <option value="dress">DRESS 洋裝</option>
+        <option value="pants">PANTS 褲</option>
+        <option value="set">SET 套裝</option>
+      </select>
+      <a href="/admin/product-edit.html" class="btn-primary">+ 新增商品</a>
+    </div>
+  </header>
+
+  <section class="card table-card">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="width:60px;"></th>
+          <th>商品</th>
+          <th>分類</th>
+          <th>價格</th>
+          <th>庫存</th>
+          <th>標籤</th>
+          <th>狀態</th>
+          <th style="width:140px;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </section>
+</main>
+<script type="module" src="/admin/js/admin-app.js"></script>
+<script type="module" src="/admin/js/products.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品編輯 · YEBUDA Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div id="shell"></div>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1 id="title">新增商品</h1>
+      <p class="crumbs"><a href="/admin/products.html">商品</a> · <span id="bcid">新增</span></p>
+    </div>
+    <div class="head-actions">
+      <a href="/admin/products.html" class="btn-ghost">取消</a>
+      <button id="save-btn" class="btn-primary">儲存商品</button>
+    </div>
+  </header>
+
+  <form id="f" class="product-form">
+    <div class="form-grid">
+      <section class="card">
+        <h3>基本資訊</h3>
+        <label>商品名稱 *</label>
+        <input name="name" required>
+        <label>英文副標 (SUBTITLE)</label>
+        <input name="subtitle" placeholder="CLASSIC STRIPE KNIT">
+        <label>分類 *</label>
+        <select name="category" required>
+          <option value="outer">OUTER 外套</option>
+          <option value="blouse">BLOUSE 襯衫</option>
+          <option value="tee">TEE 針織T</option>
+          <option value="knit">KNIT 毛衣</option>
+          <option value="dress">DRESS 洋裝</option>
+          <option value="pants">PANTS 褲</option>
+          <option value="set">SET 套裝</option>
+        </select>
+        <label>商品介紹</label>
+        <textarea name="description" rows="5"></textarea>
+      </section>
+
+      <section class="card">
+        <h3>價格與庫存</h3>
+        <div class="two-input">
+          <div><label>售價 NT$ *</label><input name="price" type="number" min="0" required></div>
+          <div><label>原價 NT$ (選填)</label><input name="originalPrice" type="number" min="0"></div>
+        </div>
+        <label>庫存數</label>
+        <input name="stock" type="number" min="0" value="0">
+        <label>標籤 (Badge)</label>
+        <select name="badge">
+          <option value="">無</option>
+          <option value="NEW">NEW 新品</option>
+          <option value="BEST">BEST 熱銷</option>
+          <option value="HOT">HOT 話題</option>
+          <option value="SALE">SALE 特價</option>
+          <option value="SET">SET 套組</option>
+        </select>
+        <label class="chk"><input type="checkbox" name="hidden"> 暫時下架 (不顯示於前台)</label>
+      </section>
+
+      <section class="card">
+        <h3>顏色與尺寸</h3>
+        <label>主色 (顯示用)</label>
+        <input name="color" placeholder="駝色">
+        <label>可選顏色 (逗號分隔)</label>
+        <input name="colors" placeholder="駝色, 奶白, 墨黑">
+        <label>尺寸 (逗號分隔)</label>
+        <input name="sizes" placeholder="S, M, L 或 FREE">
+      </section>
+
+      <section class="card">
+        <h3>商品照片 *</h3>
+        <div class="upload-box">
+          <input id="file-input" type="file" accept="image/*" multiple hidden>
+          <button type="button" class="btn-ghost" id="pick-btn">選擇檔案上傳</button>
+          <p class="muted">支援 JPG / PNG / WEBP，每檔 ≤ 10MB · 可一次上傳多張</p>
+          <p id="upload-status" class="muted"></p>
+        </div>
+        <div id="gallery" class="gallery"></div>
+        <p class="muted" style="margin-top:10px;">點選照片設為主圖（有金框）。</p>
+      </section>
+    </div>
+    <div id="err" class="err"></div>
+  </form>
+</main>
+<script type="module" src="/admin/js/admin-app.js"></script>
+<script type="module" src="/admin/js/product-edit.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop · YEBUDA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="header-root"></div>
+
+<div class="shop-head">
+  <div class="crumbs" id="crumbs">HOME / SHOP</div>
+  <h1 id="shop-title">All Items</h1>
+  <div class="chip-bar" id="chips"></div>
+</div>
+
+<div class="filter-bar">
+  <div id="count-text">共 0 件商品</div>
+  <div>
+    <label style="color: var(--ink-soft); margin-right:8px;">排序</label>
+    <select id="sort">
+      <option value="best">熱門</option>
+      <option value="price-asc">價格由低到高</option>
+      <option value="price-desc">價格由高到低</option>
+    </select>
+  </div>
+</div>
+
+<section class="section">
+  <div class="product-grid" id="grid"></div>
+</section>
+
+<div id="footer-root"></div>
+<script type="module" src="/js/shop.js"></script>
+</body>
+</html>

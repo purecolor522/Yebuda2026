@@ -1,0 +1,16 @@
+{
+  "name": "yebuda",
+  "version": "1.0.0",
+  "description": "YEBUDA — Seoul Korea premium apparel collection",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.1.1"
+  }
+}

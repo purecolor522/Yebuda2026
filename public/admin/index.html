@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · YEBUDA Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div id="shell"></div>
+<main class="page" id="page">
+  <header class="page-head">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="crumbs">概覽 · 即時銷售與訂單</p>
+    </div>
+    <div class="head-actions">
+      <a class="btn-ghost" href="/" target="_blank">前台 ↗</a>
+    </div>
+  </header>
+
+  <section class="stat-grid" id="stats"></section>
+
+  <section class="card">
+    <div class="card-head">
+      <h3>近 30 日營收</h3>
+      <span class="muted" id="chart-total">-</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="revenue-chart" height="220"></canvas>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="card">
+      <div class="card-head"><h3>熱銷單品</h3><a href="/admin/products.html" class="link">商品管理 →</a></div>
+      <div id="best-sellers" class="best-sellers"></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h3>最近訂單</h3><a href="/admin/orders.html" class="link">所有訂單 →</a></div>
+      <div id="recent-orders" class="recent-orders"></div>
+    </section>
+  </div>
+</main>
+<script type="module" src="/admin/js/admin-app.js"></script>
+<script type="module" src="/admin/js/dashboard.js"></script>
+</body>
+</html>

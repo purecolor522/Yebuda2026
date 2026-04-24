@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout · YEBUDA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="header-root"></div>
+
+<section class="checkout-wrap">
+  <h1>Checkout</h1>
+  <div class="crumbs">購物車 · 2 / 3 · CHECKOUT</div>
+
+  <form id="ck-form" novalidate>
+    <div class="ck-section">
+      <h3>Shipping Information</h3>
+      <div class="form-row">
+        <div class="field"><label>收件人姓名 *</label><input name="name" required></div>
+        <div class="field"><label>聯絡電話 *</label><input name="phone" required placeholder="09xx-xxx-xxx"></div>
+      </div>
+      <div class="form-row full">
+        <div class="field"><label>Email *</label><input type="email" name="email" required></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>城市</label><input name="city" placeholder="台北市"></div>
+        <div class="field"><label>郵遞區號</label><input name="zip" placeholder="10041"></div>
+      </div>
+      <div class="form-row full">
+        <div class="field"><label>詳細地址 *</label><input name="address" required placeholder="街道、號碼、樓層"></div>
+      </div>
+    </div>
+
+    <div class="ck-section">
+      <h3>Payment Method</h3>
+      <div class="pay-options">
+        <label class="pay-opt selected">
+          <input type="radio" name="payment" value="ecpay" checked>
+          <div>
+            <div class="title">綠界 ECPay · 信用卡 / ATM / 超商</div>
+            <div class="hint">VISA · MASTER · JCB · Apple Pay · ATM · 全家 / 7-11 代收</div>
+          </div>
+        </label>
+        <label class="pay-opt">
+          <input type="radio" name="payment" value="transfer">
+          <div>
+            <div class="title">銀行 ATM 轉帳</div>
+            <div class="hint">下單後 24 小時內轉入指定帳戶，將手動確認</div>
+          </div>
+        </label>
+        <label class="pay-opt">
+          <input type="radio" name="payment" value="card">
+          <div>
+            <div class="title">信用卡直接付款 (測試)</div>
+            <div class="hint">Dev mode only · 正式上線後請使用綠界</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="card-fields" id="card-fields">
+        <div class="form-row full">
+          <div class="field"><label>持卡人姓名</label><input name="card_name" placeholder="Card holder"></div>
+        </div>
+        <div class="form-row full">
+          <div class="field"><label>卡號</label><input name="card_number" placeholder="4242 4242 4242 4242" inputmode="numeric"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>到期日 MM/YY</label><input name="card_expiry" placeholder="12/28"></div>
+          <div class="field"><label>CVC</label><input name="card_cvc" placeholder="•••" inputmode="numeric"></div>
+        </div>
+        <p style="font-size:11px;color:var(--ink-soft);letter-spacing:0.12em;">
+          測試用 · 範例卡號 4242 4242 4242 4242 · 12/28 · 123
+        </p>
+      </div>
+    </div>
+  </form>
+
+  <aside class="ck-summary" id="ck-summary">
+    <h3 style="font-size:13px;letter-spacing:0.3em;text-transform:uppercase;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:4px;">Order Summary</h3>
+    <div id="ck-lines"></div>
+    <div class="row"><span>商品小計</span><span id="ck-sub">-</span></div>
+    <div class="row"><span>運費</span><span id="ck-ship">-</span></div>
+    <div class="row total"><span>應付合計</span><span id="ck-total">-</span></div>
+    <button type="button" class="ck-submit" id="ck-submit">完成訂單 · PLACE ORDER</button>
+    <div id="ck-error" class="ck-error" style="display:none;"></div>
+    <p style="font-size:11px;color:var(--ink-soft);letter-spacing:0.15em;margin-top:12px;text-align:center;">
+      按下即同意 YEBUDA 服務條款與隱私政策
+    </p>
+  </aside>
+</section>
+
+<div id="footer-root"></div>
+<script type="module" src="/js/checkout.js"></script>
+</body>
+</html>
