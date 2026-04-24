@@ -1,10 +1,18 @@
-# Render.com blueprint — one-click deploy
-# 1. Push this repo to GitHub
-# 2. On https://render.com → New → Blueprint → select this repo
-# 3. Render reads this file and provisions the service + persistent disk
-# 4. Fill in the env vars marked `sync: false` in the dashboard
+# Render.com blueprint — one-click deploy (FREE TIER)
 #
-# Free tier cold-starts after 15 min idle; upgrade to Starter ($7/mo) to keep warm.
+# 1. Push this repo to GitHub (done)
+# 2. On https://render.com → New → Blueprint → select this repo
+# 3. Render reads this file and provisions the service
+# 4. Fill in ADMIN_PASSWORD when prompted
+# 5. After first deploy, set APP_BASE_URL = the render URL Render gave you
+#
+# ⚠️ Free tier notes:
+#   - No persistent disk → orders.json / carts.json / uploaded images
+#     get wiped on every restart. Seeded products (in repo) always survive.
+#     Good enough for client demo.
+#   - Service sleeps after 15 min idle; cold-start ~30s.
+#   - Upgrade to Starter ($7/mo) + uncomment the `disk:` block below for
+#     persistent data + always-on.
 services:
   - type: web
     name: yebuda-shop
@@ -18,7 +26,7 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: ADMIN_PASSWORD
-        sync: false
+        sync: false       # Render will prompt you to fill this
       - key: ADMIN_SECRET
         generateValue: true
       - key: APP_BASE_URL
@@ -31,7 +39,8 @@ services:
         value: pwFHCqoQZGmho4w6
       - key: ECPAY_HASH_IV
         value: EkRm7iFT261dpevs
-    disk:
-      name: yebuda-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+    # --- Uncomment if you upgrade to a paid plan ---
+    # disk:
+    #   name: yebuda-data
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1
