@@ -22,10 +22,6 @@ primary_region = "nrt"
   source = "yebuda_data"
   destination = "/app/data"
 
-[[mounts]]
-  source = "yebuda_uploads"
-  destination = "/app/uploads"
-
 [[vm]]
   cpu_kind = "shared"
   cpus = 1

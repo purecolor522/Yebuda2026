@@ -15,7 +15,9 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, 'data');
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const UPLOAD_DIR = process.env.NODE_ENV === 'production'
+  ? path.join(__dirname, 'data', 'uploads')
+  : path.join(__dirname, 'uploads');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
 const ORDERS_FILE   = path.join(DATA_DIR, 'orders.json');
 const CARTS_FILE    = path.join(DATA_DIR, 'carts.json');
