@@ -1,90 +1,263 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YEBUDA · Seoul Korea — 正韓東大門選品 | 韓網代購</title>
-<meta name="description" content="YEBUDA · SEOUL KOREA · EST. 2022 · 精選東大門正韓選品與韓網代購，每個女孩都該為了自己漂漂亮亮的。">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;600&family=Noto+Serif+TC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yebuda漂亮小姐 - 韓國清新服飾</title>
+  <meta name="description" content="Yebuda漂亮小姐，專營韓國清新風格服飾，從日常穿搭到特別場合，為您打造最美的每一天。">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="header-root"></div>
 
-<section class="hero">
-  <div class="hero-media" id="hero-bg"></div>
-  <div class="hero-overlay"></div>
-  <div class="hero-content" id="hero-content"></div>
-  <div class="hero-indicators" id="hero-dots"></div>
+<!-- TOP BAR -->
+<div class="top-bar">✦ 全館新品上架 <span>新會員享 NT$200 折價券</span> ✦ 滿 NT$2,000 免運 ✦</div>
+
+<!-- HEADER -->
+<header class="header" id="header">
+  <div class="header-inner">
+    <button class="hamburger" id="hamburgerBtn" aria-label="選單">☰</button>
+    <a href="#" class="logo">Yebuda<small>漂亮小姐</small></a>
+    <nav class="main-nav">
+      <div class="nav-item">
+        <a href="#">NEW</a>
+        <div class="nav-dropdown">
+          <a href="#">本週新品</a><a href="#">新品 9 折</a><a href="#">預購商品</a>
+        </div>
+      </div>
+      <div class="nav-item">
+        <a href="#">BEST</a>
+        <div class="nav-dropdown">
+          <a href="#">人氣排行</a><a href="#">回購率 TOP</a><a href="#">本月推薦</a>
+        </div>
+      </div>
+      <div class="nav-item">
+        <a href="#">上衣</a>
+        <div class="nav-dropdown">
+          <a href="#">針織/毛衣</a><a href="#">T恤</a><a href="#">襯衫</a><a href="#">背心</a><a href="#">衛衣</a>
+        </div>
+      </div>
+      <div class="nav-item">
+        <a href="#">下身</a>
+        <div class="nav-dropdown">
+          <a href="#">牛仔褲</a><a href="#">西裝褲</a><a href="#">短褲</a><a href="#">裙子</a><a href="#">寬褲</a>
+        </div>
+      </div>
+      <div class="nav-item">
+        <a href="#">洋裝</a>
+        <div class="nav-dropdown">
+          <a href="#">約會洋裝</a><a href="#">日常洋裝</a><a href="#">渡假洋裝</a><a href="#">長洋裝</a>
+        </div>
+      </div>
+      <div class="nav-item"><a href="#">外套</a></div>
+      <div class="nav-item"><a href="#">配件</a></div>
+      <div class="nav-item"><a href="#">SALE</a></div>
+    </nav>
+    <div class="header-icons">
+      <button id="searchBtn" aria-label="搜尋">🔍</button>
+      <a href="#" id="wishBtn" aria-label="收藏">♡</a>
+      <button id="cartBtn" aria-label="購物車" style="position:relative">🛒<span class="cart-count" id="cartCount">0</span></button>
+      <a href="#" aria-label="會員">👤</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO SLIDER -->
+<section class="hero" id="hero">
+  <div class="hero-slide active"><img src="images/LINE_ALBUM_2026424_260507_10.jpg" alt="韓系穿搭"><div class="hero-overlay"><h2>Summer Collection</h2><p>2025 夏季新品全面上架</p><a href="#products" class="hero-btn">SHOP NOW</a></div></div>
+  <div class="hero-slide"><img src="images/LINE_ALBUM_2026424_260507_20.jpg" alt="清新風格"><div class="hero-overlay"><h2>清新自在</h2><p>每一天都值得漂亮出門</p><a href="#products" class="hero-btn">探索更多</a></div></div>
+  <div class="hero-slide"><img src="images/LINE_ALBUM_2026424_260507_24.jpg" alt="韓風穿搭"><div class="hero-overlay"><h2>韓系日常</h2><p>打造屬於你的風格</p><a href="#products" class="hero-btn">立即選購</a></div></div>
+  <div class="hero-arrows"><button class="hero-arrow" id="heroPrev">‹</button><button class="hero-arrow" id="heroNext">›</button></div>
+  <div class="hero-dots" id="heroDots"></div>
 </section>
 
+<!-- CATEGORY TABS + PRODUCTS -->
+<section class="section" id="products">
+  <div class="section-header fade-in">
+    <h2>New Arrivals</h2>
+    <p>每週精選韓國直送新品</p>
+    <div class="divider"></div>
+  </div>
+  <div class="category-tabs fade-in">
+    <button class="cat-tab active" data-cat="all">ALL</button>
+    <button class="cat-tab" data-cat="top">上衣</button>
+    <button class="cat-tab" data-cat="bottom">下身</button>
+    <button class="cat-tab" data-cat="dress">洋裝</button>
+    <button class="cat-tab" data-cat="outer">外套</button>
+    <button class="cat-tab" data-cat="acc">配件</button>
+  </div>
+  <div class="product-grid fade-in" id="productGrid"></div>
+</section>
+
+<!-- BANNER -->
+<section class="banner-section fade-in">
+  <img src="images/LINE_ALBUM_2026424_260507_15.jpg" alt="Lookbook">
+  <div class="banner-overlay">
+    <h2>Yebuda Lookbook</h2>
+    <p>穿出你的故事，記錄每個美好瞬間</p>
+    <a href="#lookbook" class="hero-btn">VIEW LOOKBOOK</a>
+  </div>
+</section>
+
+<!-- BEST SELLERS -->
 <section class="section">
-  <div class="section-head">
-    <div class="eyebrow">S H O P   B Y   C A T E G O R Y</div>
-    <h2>Explore the Collection</h2>
-    <p>SEOUL 精選・秋冬新品到店</p>
+  <div class="section-header fade-in">
+    <h2>Best Sellers</h2>
+    <p>最受歡迎的人氣單品</p>
+    <div class="divider"></div>
   </div>
-  <div class="cat-grid" id="cat-grid"></div>
+  <div class="product-grid fade-in" id="bestGrid"></div>
 </section>
 
-<section class="section">
-  <div class="section-head">
-    <div class="eyebrow">W E E K L Y   B E S T</div>
-    <h2>熱銷單品</h2>
-    <p>Top picks hand-selected by our Seoul buyer</p>
+<!-- LOOKBOOK -->
+<section id="lookbook">
+  <div class="section-header fade-in" style="padding-top:60px">
+    <h2>Lookbook</h2>
+    <p>穿搭靈感 · 韓系日常</p>
+    <div class="divider"></div>
   </div>
-  <div class="tab-bar" id="tabs"></div>
-  <div class="product-grid" id="weekly-grid"></div>
+  <div class="lookbook-grid fade-in" id="lookbookGrid"></div>
 </section>
 
-<section class="editorial">
-  <div>
-    <img src="/media/LINE_ALBUM_2026424_260424_10.jpg" alt="Camel coat story">
+<!-- FEATURES -->
+<div class="features fade-in">
+  <div class="feature-item"><div class="feature-icon">🚚</div><h4>免運費</h4><p>滿 NT$2,000 全台免運</p></div>
+  <div class="feature-item"><div class="feature-icon">↩️</div><h4>7天鑑賞期</h4><p>不滿意可退換貨</p></div>
+  <div class="feature-item"><div class="feature-icon">✨</div><h4>韓國直送</h4><p>韓國精選品質保證</p></div>
+  <div class="feature-item"><div class="feature-icon">💬</div><h4>線上客服</h4><p>週一至週五 11:00-17:00</p></div>
+</div>
+
+<!-- INSTAGRAM -->
+<section>
+  <div class="section-header fade-in" style="padding-top:40px">
+    <h2>@yebuda22</h2>
+    <p>Follow us on Instagram</p>
+    <div class="divider"></div>
   </div>
-  <div class="text">
-    <div class="eyebrow">E D I T O R ' S   P I C K</div>
-    <h3>Camel Season<br><em>Wrapped in warmth</em></h3>
-    <p>鎮店款雙面羊毛長大衣回歸，由首爾東大門師傅手工縫製、無內襯雙面料，輕盈卻保暖。今年新增奶油色與炭灰，限量回購中。</p>
-    <a href="/product.html?id=y010">Shop the Look</a>
-  </div>
+  <div class="insta-grid fade-in" id="instaGrid"></div>
 </section>
 
-<section class="section">
-  <div class="section-head">
-    <div class="eyebrow">N E W   A R R I V A L</div>
-    <h2>New Arrival</h2>
-    <p>本週上新・限量供應</p>
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <h4>Yebuda 漂亮小姐</h4>
+      <p>專營韓國清新風格服飾<br>從日常穿搭到特別場合<br>為您打造最美的每一天</p>
+      <div class="footer-social">
+        <a href="https://www.instagram.com/yebuda22/" target="_blank">📷</a>
+        <a href="#">💬</a>
+        <a href="#">📘</a>
+      </div>
+    </div>
+    <div>
+      <h4>SHOP</h4>
+      <a href="#">新品上架</a><br><a href="#">人氣排行</a><br><a href="#">上衣</a><br><a href="#">下身</a><br><a href="#">洋裝</a><br><a href="#">外套</a><br><a href="#">配件</a><br><a href="#">特價商品</a>
+    </div>
+    <div>
+      <h4>SUPPORT</h4>
+      <a href="#">常見問題</a><br><a href="#">退換貨政策</a><br><a href="#">運送說明</a><br><a href="#">尺寸指南</a><br><a href="#">聯絡我們</a>
+    </div>
+    <div>
+      <h4>CUSTOMER CENTER</h4>
+      <p>營業時間：11:00 ~ 17:00<br>午休：12:30 ~ 13:30<br>週末及國定假日休息</p>
+      <p style="margin-top:12px">LINE：@yebuda22<br>Email：hello@yebuda.com</p>
+    </div>
   </div>
-  <div class="product-grid grid-3" id="new-grid"></div>
-</section>
+  <div class="footer-bottom">© 2025 Yebuda漂亮小姐. All Rights Reserved.</div>
+</footer>
 
-<section class="features">
-  <div class="feature">
-    <div class="icon">✈︎</div>
-    <h4>Korea Direct</h4>
-    <p>首爾東大門產地直送，正韓品質保證</p>
+<!-- SEARCH OVERLAY -->
+<div class="search-overlay" id="searchOverlay">
+  <span class="search-close" id="searchClose">✕</span>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="搜尋商品...">
+    <div class="search-results" id="searchResults"></div>
   </div>
-  <div class="feature">
-    <div class="icon">◇</div>
-    <h4>Premium Fabric</h4>
-    <p>嚴選天然材質，親膚透氣不起毛球</p>
-  </div>
-  <div class="feature">
-    <div class="icon">⌘</div>
-    <h4>Free Shipping</h4>
-    <p>單筆滿 NT$3,000 全台免運</p>
-  </div>
-  <div class="feature">
-    <div class="icon">♡</div>
-    <h4>7-Day Return</h4>
-    <p>現貨商品 7 日內可申請退換</p>
-  </div>
-</section>
+</div>
 
-<div id="footer-root"></div>
+<!-- CART DRAWER -->
+<div class="cart-drawer" id="cartDrawer">
+  <div class="cart-header"><h3>購物車</h3><span style="font-size:24px;cursor:pointer" id="cartClose">✕</span></div>
+  
+  <div class="cart-body" id="cartBody" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+    <div class="cart-items" id="cartItems"><p style="text-align:center;padding:40px 0;color:#999">購物車是空的</p></div>
+    <div class="cart-footer">
+      <div class="cart-total"><span>合計</span><span id="cartTotal">NT$0</span></div>
+      <button class="checkout-btn" id="showCheckoutBtn">前往結帳</button>
+    </div>
+  </div>
 
-<script type="module" src="/js/home.js"></script>
+  <div class="checkout-form-container" id="checkoutFormContainer" style="display:none; padding: 20px; flex: 1; overflow-y: auto;">
+    <h4 style="margin-bottom:15px">填寫運送資料</h4>
+    <form id="checkoutForm">
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">姓名</label>
+        <input type="text" id="buyerName" required placeholder="王大明" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">電話</label>
+        <input type="tel" id="buyerPhone" required placeholder="0912345678" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">收件地址</label>
+        <input type="text" id="buyerAddress" required placeholder="台北市信義區..." style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">付款方式</label>
+        <select id="paymentMethod" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+          <option value="cod">貨到付款</option>
+          <option value="transfer">銀行轉帳</option>
+        </select>
+      </div>
+      <div style="margin-top:20px; display:flex; gap:10px;">
+        <button type="button" id="backToCartBtn" style="flex:1; padding:12px; border:1px solid #ccc; background:transparent; cursor:pointer;">返回購物車</button>
+        <button type="submit" class="checkout-btn" style="flex:2; margin-top:0;">確認訂單</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="productModal">
+  <span class="modal-close" id="modalClose">✕</span>
+  <div class="modal">
+    <div class="modal-img"><img id="modalImg" src="" alt=""></div>
+    <div class="modal-body">
+      <h2 id="modalTitle"></h2>
+      <div class="modal-desc" id="modalDesc"></div>
+      <div class="modal-price" id="modalPrice"></div>
+      <p style="font-size:12px;color:#888;margin-bottom:8px">尺寸</p>
+      <div class="size-selector" id="sizeSelector">
+        <button class="size-btn active">S</button><button class="size-btn">M</button><button class="size-btn">L</button><button class="size-btn">XL</button>
+      </div>
+      <p style="font-size:12px;color:#888;margin-bottom:8px">數量</p>
+      <div class="qty-selector">
+        <button class="qty-btn" id="qtyMinus">−</button><span class="qty-num" id="qtyNum">1</span><button class="qty-btn" id="qtyPlus">+</button>
+      </div>
+      <button class="add-cart-btn" id="addCartBtn">加入購物車</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <span class="mobile-menu-close" id="mobileClose">✕</span>
+  <div class="mobile-logo">Yebuda<br><small style="font-size:12px;letter-spacing:3px;color:#888">漂亮小姐</small></div>
+  <nav>
+    <a href="#">NEW ✦</a><a href="#">BEST</a><a href="#">上衣</a><a href="#">下身</a><a href="#">洋裝</a><a href="#">外套</a><a href="#">配件</a><a href="#">SALE</a>
+  </nav>
+  <div style="margin-top:24px;padding-top:24px;border-top:1px solid #e8e4df">
+    <a href="#" style="display:block;padding:10px 0;font-size:13px;color:#888">登入 / 註冊</a>
+    <a href="#" style="display:block;padding:10px 0;font-size:13px;color:#888">我的收藏</a>
+    <a href="#" style="display:block;padding:10px 0;font-size:13px;color:#888">訂單查詢</a>
+  </div>
+</div>
+
+<!-- BACK TO TOP -->
+<button class="back-top" id="backTop">↑</button>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
 </body>
 </html>

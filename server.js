@@ -6,6 +6,7 @@ import fssync from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import nodemailer from 'nodemailer';
 import { buildCheckoutPage, verifyCallback } from './lib/ecpay.js';
 import {
   adminPassword, issueAdminCookie, clearAdminCookie,
@@ -155,8 +156,41 @@ app.delete('/api/cart', async (req, res) => {
 });
 
 // =================================================================
-// Checkout + Payment
+// Checkout + Payment + Email
 // =================================================================
+const mailTransporter = process.env.SMTP_USER && process.env.SMTP_PASS ? nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+}) : null;
+
+async function sendOrderNotification(order) {
+  if (!mailTransporter || !process.env.NOTIFICATION_EMAIL) return;
+  const itemsHtml = order.items.map(it => `<li>${it.name} (${it.size}) x ${it.qty} - NT$${it.subtotal}</li>`).join('');
+  const mailOptions = {
+    from: `"YEBUDA Shop" <${process.env.SMTP_USER}>`,
+    to: process.env.NOTIFICATION_EMAIL,
+    subject: `[新訂單通知] 訂單編號 ${order.id} - NT$${order.total}`,
+    html: `
+      <h2>收到一筆新訂單！</h2>
+      <p><strong>訂單編號：</strong> ${order.id}</p>
+      <p><strong>顧客姓名：</strong> ${order.customer.name}</p>
+      <p><strong>聯絡電話：</strong> ${order.customer.phone}</p>
+      <p><strong>付款方式：</strong> ${order.payment.method}</p>
+      <h3>購買明細：</h3>
+      <ul>${itemsHtml}</ul>
+      <p><strong>總計金額：</strong> NT$${order.total}</p>
+      <hr>
+      <p><a href="http://localhost:3000/admin/login.html">登入後台查看詳情</a></p>
+    `
+  };
+  try {
+    await mailTransporter.sendMail(mailOptions);
+    console.log(`Email sent for order ${order.id}`);
+  } catch(e) {
+    console.error('Failed to send order email:', e);
+  }
+}
+
 async function buildPendingOrder(sid, customer, payment) {
   const items = await getCart(sid);
   if (!items.length) throw new Error('購物車是空的');
@@ -195,6 +229,7 @@ app.post('/api/checkout', async (req, res) => {
       order.payment.ecpayTradeNo = tradeNo;
       await writeJson(ORDERS_FILE, orders);
       await saveCart(req.sid, []);
+      sendOrderNotification(order).catch(console.error);
       res.json({ ok: true, redirectHtml: html, order: { id: order.id } });
       return;
     }
@@ -211,6 +246,7 @@ app.post('/api/checkout', async (req, res) => {
       orders.unshift(order);
       await writeJson(ORDERS_FILE, orders);
       await saveCart(req.sid, []);
+      sendOrderNotification(order).catch(console.error);
       res.json({ ok: true, order });
       return;
     }
@@ -222,6 +258,7 @@ app.post('/api/checkout', async (req, res) => {
       orders.unshift(order);
       await writeJson(ORDERS_FILE, orders);
       await saveCart(req.sid, []);
+      sendOrderNotification(order).catch(console.error);
       res.json({ ok: true, order });
       return;
     }

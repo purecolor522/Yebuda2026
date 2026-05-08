@@ -9,3 +9,5 @@ data/orders.json
 uploads/*
 !uploads/.gitkeep
 *.log
+node-v20.12.2-darwin-arm64/
+node.tar.gz
