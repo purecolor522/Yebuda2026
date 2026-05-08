@@ -262,6 +262,10 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .tag.paid { background: #dfeedc; color: var(--green); }
 .tag.awaiting_payment { background: #f7ebcd; color: var(--amber); }
 .tag.shipped { background: #dce7f2; color: var(--blue); }
+.tag.in_transit { background: #d6e8f5; color: #2f6fbf; }
+.tag.delivered { background: #e2e2e2; color: #555; }
+.tag.refund_requested { background: #f5e1d8; color: #b25c3a; }
+.tag.refunded { background: #efd6d3; color: #a04a4a; }
 .tag.payment_failed, .tag.cancelled { background: #f7d7d3; color: var(--red); }
 .tag.hidden { background: #eee; color: #999; }
 .tag.NEW { background: var(--ink); color: #fff; }
@@ -383,9 +387,101 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 @media (max-width: 720px) {
   .admin-shell { display: none; }
   .page { margin-left: 0; padding: 20px 16px 40px; }
-  .page-head { flex-direction: column; align-items: flex-start; }
-  .admin-table { font-size: 12px; }
-  .admin-table th:nth-child(4), .admin-table td:nth-child(4),
-  .admin-table th:nth-child(6), .admin-table td:nth-child(6) { display: none; }
+  .page-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+  /* Mobile-only back-to-dashboard chip */
+  #mobile-back-chip {
+    display: inline-block;
+    margin: 12px 16px 0;
+    padding: 8px 16px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    border-radius: 999px;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  #mobile-back-chip:hover, #mobile-back-chip:active { background: var(--brand-dark); color: #fff; }
+}
+@media (min-width: 721px) {
+  #mobile-back-chip { display: none; }
+}
+  .head-actions { width: 100%; flex-wrap: wrap; gap: 8px; }
+  .head-actions .inp-search { flex: 1; min-width: 140px; }
   .gallery { grid-template-columns: repeat(3, 1fr); }
+
+  /* Products table → card layout on mobile */
+  .table-card { background: transparent; border: none; padding: 0; }
+  .admin-table thead { display: none; }
+  .admin-table, .admin-table tbody { display: block; width: 100%; }
+  .admin-table tr {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    column-gap: 14px;
+    row-gap: 4px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .admin-table tr:hover { background: #fff; }
+  .admin-table td {
+    padding: 0;
+    border: none;
+    font-size: 13px;
+  }
+  /* image cell spans full card height on the left */
+  .admin-table td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1 / span 6;
+    align-self: start;
+  }
+  .admin-table img.thumb { width: 90px; height: 120px; border-radius: 4px; }
+
+  /* product name + meta block */
+  .admin-table td:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .admin-table .name { font-size: 14px; line-height: 1.4; }
+  .admin-table .sku { font-size: 10px; margin-top: 4px; }
+
+  /* category */
+  .admin-table td:nth-child(3) {
+    grid-column: 2; grid-row: 2;
+    font-size: 11px; color: var(--ink-soft); letter-spacing: 0.1em;
+  }
+  /* price */
+  .admin-table td:nth-child(4) {
+    display: block; grid-column: 2; grid-row: 3;
+  }
+  .admin-table td:nth-child(4) strong { font-size: 15px; }
+  /* stock */
+  .admin-table td:nth-child(5)::before {
+    content: "庫存 "; color: var(--ink-soft); font-size: 11px;
+  }
+  .admin-table td:nth-child(5) { grid-column: 2; grid-row: 4; font-size: 12px; }
+  /* badge — show again on mobile but small */
+  .admin-table td:nth-child(6) {
+    display: block; grid-column: 2; grid-row: 5;
+  }
+  /* status tag */
+  .admin-table td:nth-child(7) { grid-column: 2; grid-row: 6; }
+
+  /* actions — full-width row below image, stacked horizontally */
+  .admin-table td:nth-child(8) {
+    grid-column: 1 / -1;
+    display: flex; gap: 8px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .admin-table td:nth-child(8) > a,
+  .admin-table td:nth-child(8) > button {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 13px;
+    text-align: center;
+    min-height: 40px;
+  }
+  /* empty state row spans both columns */
+  .admin-table td[colspan] { grid-column: 1 / -1 !important; grid-row: auto !important; }
 }

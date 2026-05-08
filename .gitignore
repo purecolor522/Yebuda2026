@@ -6,8 +6,11 @@ npm-debug.log
 # Runtime storage (keep shape; actual data lives on volume/disk in prod)
 data/carts.json
 data/orders.json
+data/customers.json
 uploads/*
 !uploads/.gitkeep
 *.log
 node-v20.12.2-darwin-arm64/
 node.tar.gz
+# Local test artifacts
+.test-screenshots/

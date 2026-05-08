@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 批次新增商品 · YEBUDA Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+<style>
+  .batch-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:18px; margin-top:20px; }
+  .batch-card { border:1px solid #e8e4df; border-radius:8px; background:#fff; overflow:hidden; display:flex; flex-direction:column; }
+  .batch-card.skip { opacity:0.4; }
+  .batch-card .bc-img { aspect-ratio:1; background:#f4f1ec; position:relative; }
+  .batch-card .bc-img img { width:100%; height:100%; object-fit:cover; }
+  .batch-card .bc-status { position:absolute; top:8px; left:8px; padding:4px 10px; font-size:11px; letter-spacing:0.1em; background:rgba(255,255,255,0.95); border-radius:4px; }
+  .batch-card .bc-status.loading { color:#888; }
+  .batch-card .bc-status.ok { color:#3f6e3a; }
+  .batch-card .bc-status.err { color:#c84436; }
+  .batch-card .bc-skip { position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,0.95); border:none; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; }
+  .batch-card .bc-body { padding:14px; display:flex; flex-direction:column; gap:8px; }
+  .batch-card label { font-size:11px; color:#888; letter-spacing:0.1em; }
+  .batch-card input, .batch-card select, .batch-card textarea { width:100%; padding:8px 10px; border:1px solid #e8e4df; outline:none; font-family:inherit; font-size:13px; background:#fff; }
+  .batch-card textarea { resize:vertical; min-height:60px; }
+  .batch-card .bc-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .batch-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px; background:#f4f1ec; border-radius:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .batch-summary { font-size:14px; }
+  .batch-summary strong { color:#3f6e3a; font-size:18px; }
+  .batch-empty { text-align:center; padding:60px 20px; color:#888; border:2px dashed #d8d4cf; border-radius:8px; }
+  .batch-empty p { margin-top:12px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="shell"></div>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>AI 批次新增商品</h1>
+      <p class="crumbs"><a href="/admin/products.html">商品</a> · 批次建立</p>
+    </div>
+    <div class="head-actions">
+      <a href="/admin/products.html" class="btn-ghost">返回商品列表</a>
+    </div>
+  </header>
+
+  <section class="batch-toolbar">
+    <div class="batch-summary">
+      已上傳：<strong id="totalCount">0</strong> 張 ／ 將建立：<strong id="keepCount">0</strong> 件商品
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input id="fileInput" type="file" accept="image/*" multiple hidden>
+      <button id="pickBtn" class="btn-ghost">+ 選擇照片</button>
+      <button id="retryFailedBtn" class="btn-ghost" title="重試 AI 辨識失敗的項目（會放慢速度避免 rate limit）">↻ 重試失敗的</button>
+      <button id="defaultPriceBtn" class="btn-ghost" title="一次給所有未填價格的商品設定相同售價">💰 統一設售價</button>
+      <button id="saveAllBtn" class="btn-primary" disabled>儲存全部商品</button>
+    </div>
+  </section>
+
+  <p class="muted" id="aiStatusBar"></p>
+
+  <div id="batchGrid" class="batch-grid"></div>
+
+  <div id="emptyState" class="batch-empty">
+    <h3 style="font-weight:500;">🤖 AI 批次新增</h3>
+    <p>選擇多張商品照片，AI 會逐張辨識分類、命名、生成介紹。<br>
+    每張照片 = 一件商品。檢查無誤後一鍵全部儲存。</p>
+  </div>
+</main>
+<script type="module" src="/admin/js/admin-app.js"></script>
+<script type="module" src="/admin/js/batch-create.js"></script>
+</body>
+</html>

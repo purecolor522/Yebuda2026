@@ -53,6 +53,93 @@ fileInput.addEventListener('change', async () => {
   fileInput.value = '';
 });
 
+// ===== AI 一鍵辨識上傳 =====
+const aiInput = document.createElement('input');
+aiInput.type = 'file';
+aiInput.accept = 'image/*';
+aiInput.multiple = true;
+aiInput.style.display = 'none';
+document.body.appendChild(aiInput);
+
+document.getElementById('ai-pick-btn').addEventListener('click', () => aiInput.click());
+
+aiInput.addEventListener('change', async () => {
+  if (!aiInput.files.length) return;
+  const files = [...aiInput.files];
+  const aiSt = document.getElementById('ai-status');
+  const upSt = document.getElementById('upload-status');
+
+  // Step 1: upload all files first (so they're stored on server)
+  upSt.textContent = `上傳中 (${files.length} 張)...`;
+  let uploadedUrls = [];
+  try {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    const res = await api('/api/admin/upload', { method: 'POST', body: fd });
+    uploadedUrls = res.urls;
+    images = images.concat(uploadedUrls);
+    upSt.textContent = `✓ 已上傳 ${uploadedUrls.length} 張`;
+    renderGallery();
+  } catch (e) {
+    upSt.textContent = '';
+    toast('上傳失敗：' + e.message, 'error');
+    aiInput.value = '';
+    return;
+  }
+
+  // Step 2: classify the FIRST image and auto-fill the form
+  aiSt.textContent = '🤖 AI 辨識中（約 3 秒）...';
+  try {
+    const fd = new FormData();
+    fd.append('image', files[0]);
+    const r = await api('/api/admin/classify', { method: 'POST', body: fd });
+    applyAiResult(r);
+    aiSt.textContent = `✨ 已自動填入：${r.name}`;
+    toast('AI 辨識完成 ✨', 'success');
+  } catch (e) {
+    aiSt.textContent = '⚠ AI 辨識失敗：' + e.message;
+    toast(e.message, 'error');
+  }
+  aiInput.value = '';
+});
+
+function applyAiResult(r) {
+  // Only fill empty fields — don't overwrite user-edited content
+  const fillIfEmpty = (field, value) => {
+    if (!field) return;
+    if (!field.value || field.value.trim() === '') field.value = value;
+  };
+  fillIfEmpty(form.name, r.name);
+  fillIfEmpty(form.subtitle, r.subtitle);
+  fillIfEmpty(form.description, r.description);
+  if (r.category && form.category) {
+    const opt = [...form.category.options].find(o => o.value === r.category);
+    if (opt && (!form.category.value || form.category.value === 'outer')) {
+      form.category.value = r.category;
+    }
+  }
+  if (r.suggestedColors?.length) {
+    fillIfEmpty(form.color, r.suggestedColors[0]);
+    fillIfEmpty(form.colors, r.suggestedColors.join(', '));
+  }
+  if (r.suggestedSizes?.length) {
+    fillIfEmpty(form.sizes, r.suggestedSizes.join(', '));
+  }
+}
+
+// On page load, hide the AI button if the server says no API key is configured
+(async () => {
+  try {
+    const s = await api('/api/admin/ai-status');
+    if (!s.available) {
+      const btn = document.getElementById('ai-pick-btn');
+      btn.title = '尚未設定 GEMINI_API_KEY';
+      btn.style.opacity = '0.5';
+      document.getElementById('ai-status').textContent = '💡 想啟用 AI 辨識？請在 .env 加上 GEMINI_API_KEY（aistudio.google.com/apikey 免費取得）';
+    }
+  } catch {}
+})();
+
 function renderGallery() {
   if (!images.length) { gallery.innerHTML = '<p class="muted" style="grid-column:1/-1;text-align:center;padding:20px;">尚未上傳照片。</p>'; return; }
   gallery.innerHTML = images.map((url, i) => `

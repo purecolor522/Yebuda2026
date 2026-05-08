@@ -1,9 +1,19 @@
 import { api, TWD, fmtDate, toast } from './admin-app.js';
 
-const STATUS_OPTIONS = ['paid', 'awaiting_payment', 'shipped', 'payment_failed', 'cancelled'];
+const STATUS_OPTIONS = [
+  'awaiting_payment', 'paid', 'shipped', 'in_transit', 'delivered',
+  'refund_requested', 'refunded', 'payment_failed', 'cancelled'
+];
 const STATUS_LABEL = {
-  paid: '已付款', awaiting_payment: '待付款',
-  shipped: '已出貨', payment_failed: '付款失敗', cancelled: '已取消'
+  awaiting_payment: '待付款',
+  paid:             '已付款（待出貨）',
+  shipped:          '已出貨',
+  in_transit:       '待簽收',
+  delivered:        '已取件',
+  refund_requested: '退貨申請中',
+  refunded:         '已退貨',
+  payment_failed:   '付款失敗',
+  cancelled:        '已取消',
 };
 
 let all = [];
@@ -43,6 +53,10 @@ function render() {
           <div class="it">${o.customer.name} · ${o.customer.phone}</div>
           <div class="it muted">${o.customer.email || ''}</div>
           <div class="it muted">${o.customer.zip || ''} ${o.customer.city || ''} ${o.customer.address}</div>
+          ${o.purchaser && (o.purchaser.name !== o.customer.name || o.purchaser.phone !== o.customer.phone) ? `
+            <div class="it" style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee">
+              <span style="color:#999;font-size:11px">訂購人：</span>${o.purchaser.name} · ${o.purchaser.phone}
+            </div>` : ''}
         </div>
         <div>
           <h5>付款與金額</h5>
@@ -58,6 +72,8 @@ function render() {
         </select>
         <input class="inp-search track-in" placeholder="物流單號" value="${o.trackingNo || ''}" style="max-width:180px;">
         <button class="btn-xs btn-save">儲存變更</button>
+        ${o.status === 'paid' ? `<button class="btn-xs btn-ship" style="background:#3b7a57;color:#fff;">📦 出貨</button>` : ''}
+        ${(o.status === 'shipped' || o.status === 'in_transit') ? `<button class="btn-xs btn-deliver" style="background:#2f6fbf;color:#fff;">✅ 標記送達</button>` : ''}
       </div>
     </div>`).join('');
 
@@ -72,13 +88,40 @@ function render() {
         load();
       } catch (e) { toast(e.message, 'error'); }
     });
+
+    const shipBtn = card.querySelector('.btn-ship');
+    if (shipBtn) shipBtn.addEventListener('click', async () => {
+      const existing = card.querySelector('.track-in').value.trim();
+      const trackingNo = (prompt('請輸入物流單號（可留空）', existing) ?? '').trim();
+      try {
+        await api(`/api/admin/orders/${id}`, { method: 'PUT', body: { status: 'shipped', trackingNo } });
+        toast('已標記為出貨', 'success');
+        load();
+      } catch (e) { toast(e.message, 'error'); }
+    });
+
+    const deliverBtn = card.querySelector('.btn-deliver');
+    if (deliverBtn) deliverBtn.addEventListener('click', async () => {
+      if (!confirm('確認此訂單已送達？')) return;
+      try {
+        await api(`/api/admin/orders/${id}`, { method: 'PUT', body: { status: 'delivered' } });
+        toast('已標記為送達', 'success');
+        load();
+      } catch (e) { toast(e.message, 'error'); }
+    });
   });
 }
 function describePayment(p) {
   if (!p) return '-';
-  if (p.method === 'ecpay') return `綠界 · ${p.paymentType || '-'} · ${p.status === 'paid' ? '已付款' : p.status}`;
-  if (p.method === 'card-mock') return `信用卡 (測試) ****${p.last4}`;
-  if (p.method === 'transfer') return `ATM 轉帳 · ${p.status === 'paid' ? '已確認' : '待確認'}`;
+  if (p.method === 'ecpay') return `信用卡（綠界）· ${p.paymentType || '-'} · ${p.status === 'paid' ? '已付款' : p.status}`;
+  if (p.method === 'card-mock') return `信用卡（測試）****${p.last4}`;
+  if (p.method === 'cvs-cod') return `超商取貨付款 · ${p.status === 'paid' ? '已付款' : '待取貨付款'}`;
+  if (p.method === 'transfer') {
+    const verify = p.transferLast5
+      ? `· 末5碼 ${p.transferLast5} · NT$${p.transferAmount}`
+      : '';
+    return `銀行轉帳 ${verify} · ${p.status === 'paid' ? '已確認' : '待對帳'}`;
+  }
   return p.method;
 }
 

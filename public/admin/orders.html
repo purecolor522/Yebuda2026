@@ -18,9 +18,13 @@
     <div class="head-actions">
       <select id="filter-status" class="inp-select">
         <option value="all">全部狀態</option>
-        <option value="paid">已付款</option>
         <option value="awaiting_payment">待付款</option>
+        <option value="paid">已付款（待出貨）</option>
         <option value="shipped">已出貨</option>
+        <option value="in_transit">待簽收</option>
+        <option value="delivered">已取件</option>
+        <option value="refund_requested">退貨申請中</option>
+        <option value="refunded">已退貨</option>
         <option value="payment_failed">付款失敗</option>
         <option value="cancelled">已取消</option>
       </select>

@@ -10,7 +10,7 @@
 <body>
 
 <!-- TOP BAR -->
-<div class="top-bar">✦ 全館新品上架 <span>新會員享 NT$200 折價券</span> ✦ 滿 NT$2,000 免運 ✦</div>
+<div class="top-bar">✦ 全館新品上架 <span>新會員註冊送 NT$100 折價券</span> ✦ 滿 NT$2,000 免運 ✦</div>
 
 <!-- HEADER -->
 <header class="header" id="header">
@@ -19,44 +19,52 @@
     <a href="#" class="logo">Yebuda<small>漂亮小姐</small></a>
     <nav class="main-nav">
       <div class="nav-item">
-        <a href="#">NEW</a>
+        <a href="#products" data-shop="all">NEW</a>
         <div class="nav-dropdown">
-          <a href="#">本週新品</a><a href="#">新品 9 折</a><a href="#">預購商品</a>
+          <a href="#products" data-shop="all">本週新品</a>
+          <a href="#products" data-shop="sale">新品特價</a>
+          <a href="#bests"    data-shop="best">熱銷推薦</a>
         </div>
       </div>
       <div class="nav-item">
-        <a href="#">BEST</a>
+        <a href="#bests" data-shop="best">BEST</a>
         <div class="nav-dropdown">
-          <a href="#">人氣排行</a><a href="#">回購率 TOP</a><a href="#">本月推薦</a>
+          <a href="#bests"    data-shop="best">人氣排行</a>
+          <a href="#products" data-shop="all">本月推薦</a>
         </div>
       </div>
       <div class="nav-item">
-        <a href="#">上衣</a>
+        <a href="#products" data-shop="top">上衣</a>
         <div class="nav-dropdown">
-          <a href="#">針織/毛衣</a><a href="#">T恤</a><a href="#">襯衫</a><a href="#">背心</a><a href="#">衛衣</a>
+          <a href="#products" data-shop="top">所有上衣</a>
+          <a href="#products" data-shop="top">針織/毛衣</a>
+          <a href="#products" data-shop="top">T恤</a>
+          <a href="#products" data-shop="top">襯衫</a>
         </div>
       </div>
       <div class="nav-item">
-        <a href="#">下身</a>
+        <a href="#products" data-shop="bottom">下身</a>
         <div class="nav-dropdown">
-          <a href="#">牛仔褲</a><a href="#">西裝褲</a><a href="#">短褲</a><a href="#">裙子</a><a href="#">寬褲</a>
+          <a href="#products" data-shop="bottom">所有下身</a>
+          <a href="#products" data-shop="bottom">短褲</a>
+          <a href="#products" data-shop="bottom">長褲</a>
         </div>
       </div>
       <div class="nav-item">
-        <a href="#">洋裝</a>
+        <a href="#products" data-shop="dress">洋裝</a>
         <div class="nav-dropdown">
-          <a href="#">約會洋裝</a><a href="#">日常洋裝</a><a href="#">渡假洋裝</a><a href="#">長洋裝</a>
+          <a href="#products" data-shop="dress">所有洋裝</a>
         </div>
       </div>
-      <div class="nav-item"><a href="#">外套</a></div>
-      <div class="nav-item"><a href="#">配件</a></div>
-      <div class="nav-item"><a href="#">SALE</a></div>
+      <div class="nav-item"><a href="#products" data-shop="outer">外套</a></div>
+      <div class="nav-item"><a href="#products" data-shop="set">套裝</a></div>
+      <div class="nav-item"><a href="#products" data-shop="sale">SALE</a></div>
     </nav>
     <div class="header-icons">
       <button id="searchBtn" aria-label="搜尋">🔍</button>
-      <a href="#" id="wishBtn" aria-label="收藏">♡</a>
+      <a href="#" id="wishBtn" aria-label="收藏" style="position:relative">♡<span class="cart-count" id="wishCountBadge" style="display:none">0</span></a>
       <button id="cartBtn" aria-label="購物車" style="position:relative">🛒<span class="cart-count" id="cartCount">0</span></button>
-      <a href="#" aria-label="會員">👤</a>
+      <button id="memberBtn" aria-label="會員" style="position:relative">👤<span class="member-label" id="memberLabel"></span></button>
     </div>
   </div>
 </header>
@@ -83,7 +91,8 @@
     <button class="cat-tab" data-cat="bottom">下身</button>
     <button class="cat-tab" data-cat="dress">洋裝</button>
     <button class="cat-tab" data-cat="outer">外套</button>
-    <button class="cat-tab" data-cat="acc">配件</button>
+    <button class="cat-tab" data-cat="set">套裝</button>
+    <button class="cat-tab" data-cat="sale">特價</button>
   </div>
   <div class="product-grid fade-in" id="productGrid"></div>
 </section>
@@ -99,7 +108,7 @@
 </section>
 
 <!-- BEST SELLERS -->
-<section class="section">
+<section class="section" id="bests">
   <div class="section-header fade-in">
     <h2>Best Sellers</h2>
     <p>最受歡迎的人氣單品</p>
@@ -143,23 +152,48 @@
       <h4>Yebuda 漂亮小姐</h4>
       <p>專營韓國清新風格服飾<br>從日常穿搭到特別場合<br>為您打造最美的每一天</p>
       <div class="footer-social">
-        <a href="https://www.instagram.com/yebuda22/" target="_blank">📷</a>
-        <a href="#">💬</a>
-        <a href="#">📘</a>
+        <a href="https://www.instagram.com/yebuda22?igsh=MWZlZnd0NGJnZ2Zvcw==" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram @yebuda22">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="5"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
+          </svg>
+        </a>
+        <a href="https://line.me/R/ti/p/%40094efuba" target="_blank" rel="noopener" aria-label="LINE" title="LINE @094efuba">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+          </svg>
+        </a>
+        <a href="mailto:yebuda22@gmail.com" aria-label="Email" title="yebuda22@gmail.com">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <polyline points="3,7 12,13 21,7"/>
+          </svg>
+        </a>
       </div>
     </div>
     <div>
       <h4>SHOP</h4>
-      <a href="#">新品上架</a><br><a href="#">人氣排行</a><br><a href="#">上衣</a><br><a href="#">下身</a><br><a href="#">洋裝</a><br><a href="#">外套</a><br><a href="#">配件</a><br><a href="#">特價商品</a>
+      <a href="#products" data-shop="all">新品上架</a><br>
+      <a href="#bests"    data-shop="best">人氣排行</a><br>
+      <a href="#products" data-shop="top">上衣</a><br>
+      <a href="#products" data-shop="bottom">下身</a><br>
+      <a href="#products" data-shop="dress">洋裝</a><br>
+      <a href="#products" data-shop="outer">外套</a><br>
+      <a href="#products" data-shop="set">套裝</a><br>
+      <a href="#products" data-shop="sale">特價商品</a>
     </div>
     <div>
       <h4>SUPPORT</h4>
-      <a href="#">常見問題</a><br><a href="#">退換貨政策</a><br><a href="#">運送說明</a><br><a href="#">尺寸指南</a><br><a href="#">聯絡我們</a>
+      <a href="#" data-policy="faq">常見問題</a><br>
+      <a href="#" data-policy="return">退換貨政策</a><br>
+      <a href="#" data-policy="shipping">運送說明</a><br>
+      <a href="#" data-policy="contact">聯絡我們</a>
     </div>
     <div>
       <h4>CUSTOMER CENTER</h4>
       <p>營業時間：11:00 ~ 17:00<br>午休：12:30 ~ 13:30<br>週末及國定假日休息</p>
-      <p style="margin-top:12px">LINE：@yebuda22<br>Email：hello@yebuda.com</p>
+      <p style="margin-top:12px">LINE：@094efuba<br>Email：yebuda22@gmail.com</p>
     </div>
   </div>
   <div class="footer-bottom">© 2025 Yebuda漂亮小姐. All Rights Reserved.</div>
@@ -187,26 +221,135 @@
   </div>
 
   <div class="checkout-form-container" id="checkoutFormContainer" style="display:none; padding: 20px; flex: 1; overflow-y: auto;">
-    <h4 style="margin-bottom:15px">填寫運送資料</h4>
+    <h4 style="margin-bottom:8px">填寫運送資料</h4>
+    <button type="button" id="autofillBtn" style="display:none;width:100%;margin-bottom:12px;padding:10px;background:var(--bg);border:1px solid var(--accent);color:var(--accent);font-size:12px;letter-spacing:1px;cursor:pointer;border-radius:4px">✨ 帶入我的資料</button>
     <form id="checkoutForm">
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">姓名</label>
-        <input type="text" id="buyerName" required placeholder="王大明" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+
+      <!-- 1. 訂購人資料 -->
+      <div class="checkout-section">
+        <h5 class="checkout-section-title">訂購人資料</h5>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="ck-label">姓名 <span class="ck-req">*</span></label>
+          <input type="text" id="buyerName" required placeholder="王大明" class="ck-input">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="ck-label">電話 <span class="ck-req">*</span></label>
+          <input type="tel" id="buyerPhone" required placeholder="0912345678" class="ck-input">
+        </div>
+        <div class="form-group" style="margin-bottom: 4px;">
+          <label class="ck-label">Email <span class="ck-req">*</span></label>
+          <input type="email" id="buyerEmail" required placeholder="example@gmail.com" class="ck-input">
+        </div>
       </div>
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">電話</label>
-        <input type="tel" id="buyerPhone" required placeholder="0912345678" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+
+      <!-- 2. 取貨方式 -->
+      <div class="checkout-section">
+        <h5 class="checkout-section-title">取貨方式 <span class="ck-req">*</span></h5>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label class="ship-method-card" data-ship="address">
+            <input type="radio" name="shippingMethod" value="address" checked style="margin:0">
+            <div style="flex:1;">
+              <div class="ship-card-title">🏠 宅配到府</div>
+              <div class="ship-card-sub">黑貓宅急便 · 滿 NT$2,000 免運</div>
+            </div>
+          </label>
+          <label class="ship-method-card" data-ship="cvs-711">
+            <input type="radio" name="shippingMethod" value="cvs-711" style="margin:0">
+            <div style="flex:1;">
+              <div class="ship-card-title" style="color:#e63946;">🟧 7-ELEVEN 取貨</div>
+              <div class="ship-card-sub">至 7-11 門市自取</div>
+            </div>
+          </label>
+          <label class="ship-method-card" data-ship="cvs-fami">
+            <input type="radio" name="shippingMethod" value="cvs-fami" style="margin:0">
+            <div style="flex:1;">
+              <div class="ship-card-title" style="color:#00a651;">🟩 全家取貨</div>
+              <div class="ship-card-sub">至全家門市自取</div>
+            </div>
+          </label>
+        </div>
       </div>
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">收件地址</label>
-        <input type="text" id="buyerAddress" required placeholder="台北市信義區..." style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+
+      <!-- 3. 收貨人資料 -->
+      <div class="checkout-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h5 class="checkout-section-title" style="margin:0;">收貨人資料</h5>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#555; cursor:pointer;">
+            <input type="checkbox" id="sameAsPurchaser" checked style="margin:0;">
+            同訂購人
+          </label>
+        </div>
+
+        <!-- Recipient name/phone — only when 同訂購人 unchecked -->
+        <div id="recipientFields" style="display:none;">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label class="ck-label">收貨人姓名 <span class="ck-req">*</span></label>
+            <input type="text" id="rcpName" placeholder="王大明" class="ck-input">
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label class="ck-label">收貨人電話 <span class="ck-req">*</span></label>
+            <input type="tel" id="rcpPhone" placeholder="0912345678" class="ck-input">
+          </div>
+        </div>
+
+        <!-- 宅配地址 -->
+        <div class="form-group ship-block-address" style="margin-bottom: 4px;">
+          <label class="ck-label">收件地址 <span class="ck-req">*</span></label>
+          <input type="text" id="buyerAddress" placeholder="台北市信義區忠孝東路五段 100 號" class="ck-input">
+        </div>
+
+        <!-- 超商取貨門市 -->
+        <div class="ship-block-cvs" style="display:none; margin-bottom: 4px;">
+          <label class="ck-label">取貨門市 <span class="ck-req">*</span></label>
+          <button type="button" id="pickStoreBtn" style="width:100%; padding:14px; border:2px solid var(--accent); background:#fff; color:var(--accent); cursor:pointer; font-size:14px; font-weight:600; border-radius:6px; line-height:1.4;">
+            <span id="pickStoreLabel">點擊選擇門市</span>
+          </button>
+          <div id="cvsSelected" style="display:none; margin-top:12px; padding:14px; background:#f0fff4; border:1px solid #3b7a57; border-radius:6px; font-size:13px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; gap:10px;">
+              <strong style="color:#3b7a57">✓ <span id="cvsSelBrand"></span> <span id="cvsSelName"></span></strong>
+              <a href="#" id="cvsChangeBtn" style="font-size:12px; color:var(--accent); text-decoration:underline; white-space:nowrap">更換門市</a>
+            </div>
+            <p id="cvsSelAddr" style="color:#666; font-size:12px; line-height:1.5; margin:0"></p>
+          </div>
+          <input type="hidden" id="cvsBrand">
+          <input type="hidden" id="cvsStore">
+          <input type="hidden" id="cvsStoreId">
+          <input type="hidden" id="cvsStoreAddress">
+          <p style="font-size:11px; color:#999; margin-top:8px; line-height:1.5">ⓘ 開啟綠界官方門市地圖，選好門市自動帶回</p>
+        </div>
       </div>
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">付款方式</label>
-        <select id="paymentMethod" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
-          <option value="cod">貨到付款</option>
-          <option value="transfer">銀行轉帳</option>
+
+      <!-- 4. 付款方式 -->
+      <div class="checkout-section">
+        <h5 class="checkout-section-title">付款方式 <span class="ck-req">*</span></h5>
+        <div id="paymentTabs" style="display:flex; flex-direction:column; gap:8px;">
+          <label class="pay-method" data-pay="ecpay">
+            <input type="radio" name="paymentMethod" value="ecpay" checked style="margin:0">
+            <div style="flex:1;">
+              <div class="pay-card-title">💳 信用卡</div>
+              <div class="pay-card-sub">綠界 ECPay · Visa / MasterCard / JCB · 即時付款</div>
+            </div>
+          </label>
+          <label class="pay-method" data-pay="cvs-cod" id="payCvsCodLabel" style="display:none;">
+            <input type="radio" name="paymentMethod" value="cvs-cod" style="margin:0">
+            <div style="flex:1;">
+              <div class="pay-card-title">🏪 超商取貨付款</div>
+              <div class="pay-card-sub">取貨時於門市付現金</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="form-group" id="couponGroup" style="margin-bottom: 15px; display:none;">
+        <label style="display:block; margin-bottom:5px; font-size:13px; color:#555;">🎁 折價券</label>
+        <select id="couponSelect" style="width:100%; padding:10px; border:1px solid #ddd; outline:none;">
+          <option value="">不使用折價券</option>
         </select>
+      </div>
+      <div id="checkoutSummary" style="margin:8px 0 14px; padding:12px; background:var(--bg); border-radius:4px; font-size:13px; color:#666; display:none">
+        <div style="display:flex;justify-content:space-between"><span>商品小計</span><span id="csSubtotal">NT$0</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px"><span>運費</span><span id="csShipping">NT$0</span></div>
+        <div id="csCouponLine" style="display:none;justify-content:space-between;margin-top:4px;color:var(--accent)"><span id="csCouponLabel">折價券</span><span id="csCouponAmount">−NT$0</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:14px;font-weight:600;color:#222;border-top:1px solid var(--border);padding-top:8px"><span>應付總計</span><span id="csTotal">NT$0</span></div>
       </div>
       <div style="margin-top:20px; display:flex; gap:10px;">
         <button type="button" id="backToCartBtn" style="flex:1; padding:12px; border:1px solid #ccc; background:transparent; cursor:pointer;">返回購物車</button>
@@ -233,7 +376,10 @@
       <div class="qty-selector">
         <button class="qty-btn" id="qtyMinus">−</button><span class="qty-num" id="qtyNum">1</span><button class="qty-btn" id="qtyPlus">+</button>
       </div>
-      <button class="add-cart-btn" id="addCartBtn">加入購物車</button>
+      <div class="modal-actions">
+        <button type="button" class="modal-wish-btn" id="modalWishBtn" aria-label="加入收藏">♡</button>
+        <button class="add-cart-btn" id="addCartBtn">加入購物車</button>
+      </div>
     </div>
   </div>
 </div>
@@ -243,20 +389,203 @@
   <span class="mobile-menu-close" id="mobileClose">✕</span>
   <div class="mobile-logo">Yebuda<br><small style="font-size:12px;letter-spacing:3px;color:#888">漂亮小姐</small></div>
   <nav>
-    <a href="#">NEW ✦</a><a href="#">BEST</a><a href="#">上衣</a><a href="#">下身</a><a href="#">洋裝</a><a href="#">外套</a><a href="#">配件</a><a href="#">SALE</a>
+    <a href="#products" data-shop="all">NEW ✦</a>
+    <a href="#bests"    data-shop="best">BEST</a>
+    <a href="#products" data-shop="top">上衣</a>
+    <a href="#products" data-shop="bottom">下身</a>
+    <a href="#products" data-shop="dress">洋裝</a>
+    <a href="#products" data-shop="outer">外套</a>
+    <a href="#products" data-shop="set">套裝</a>
+    <a href="#products" data-shop="sale">SALE</a>
   </nav>
   <div style="margin-top:24px;padding-top:24px;border-top:1px solid #e8e4df">
-    <a href="#" style="display:block;padding:10px 0;font-size:13px;color:#888">登入 / 註冊</a>
-    <a href="#" style="display:block;padding:10px 0;font-size:13px;color:#888">我的收藏</a>
-    <a href="#" style="display:block;padding:10px 0;font-size:13px;color:#888">訂單查詢</a>
+    <a href="#" id="mobileAuthLink" style="display:block;padding:10px 0;font-size:13px;color:#888">登入 / 註冊</a>
+    <a href="#" id="mobileWishLink" style="display:block;padding:10px 0;font-size:13px;color:#888">我的收藏</a>
+    <a href="#" id="mobileOrdersLink" style="display:block;padding:10px 0;font-size:13px;color:#888">訂單查詢</a>
   </div>
 </div>
 
 <!-- BACK TO TOP -->
 <button class="back-top" id="backTop">↑</button>
 
+<!-- WISHLIST MODAL -->
+<div class="modal-overlay" id="wishlistModal">
+  <div class="modal" style="grid-template-columns:1fr;max-width:720px">
+    <div class="modal-body" style="padding:32px 28px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0;font-size:20px;letter-spacing:2px">我的收藏 <span id="wishCount" style="font-size:14px;color:#999;font-weight:400"></span></h2>
+        <span id="wishlistClose" style="font-size:24px;cursor:pointer;color:#999">✕</span>
+      </div>
+      <div id="wishlistBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CVS MAP IFRAME OVERLAY (used during checkout for store picker) -->
+<div id="cvsMapOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:5000;">
+  <div style="position:absolute; inset:max(env(safe-area-inset-top), 12px) 8px max(env(safe-area-inset-bottom), 12px) 8px; background:#fff; border-radius:10px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,0.4);">
+    <div style="padding:12px 16px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <strong id="cvsMapTitle" style="font-size:14px; letter-spacing:1px;">選擇門市</strong>
+      <button type="button" id="cvsMapClose" style="font-size:22px; background:none; border:none; cursor:pointer; padding:4px 10px; color:#999;">✕</button>
+    </div>
+    <iframe id="cvsMapFrame" src="" style="flex:1; border:none; width:100%;"></iframe>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- POLICY / SUPPORT MODAL -->
+<div class="modal-overlay" id="policyModal">
+  <div class="modal" style="grid-template-columns:1fr;max-width:640px">
+    <div class="modal-body" style="padding:40px 36px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 id="policyTitle" style="margin:0;font-size:22px;letter-spacing:2px"></h2>
+        <span id="policyClose" style="font-size:24px;cursor:pointer;color:#999">✕</span>
+      </div>
+      <div id="policyBody" style="font-size:14px;line-height:1.85;color:#444"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal" style="grid-template-columns:1fr;max-width:440px">
+    <div class="modal-body" style="padding:40px 36px">
+      <h2 id="authModalTitle" style="margin-bottom:4px">登入</h2>
+      <p style="color:#999;font-size:12px;margin-bottom:24px;letter-spacing:1px">YEBUDA 會員專區</p>
+      <div id="authErr" style="color:#e44;font-size:12px;margin-bottom:12px;display:none"></div>
+      <form id="authForm">
+        <input type="email" id="authEmail" placeholder="Email" required style="width:100%;padding:12px;border:1px solid var(--border);outline:none;margin-bottom:12px;font-family:inherit;font-size:13px">
+        <input type="password" id="authPassword" placeholder="密碼（至少 8 碼）" required style="width:100%;padding:12px;border:1px solid var(--border);outline:none;margin-bottom:6px;font-family:inherit;font-size:13px">
+        <p id="forgotLink" style="text-align:right;margin-bottom:12px;">
+          <a href="#" id="authForgotBtn" style="color:var(--accent);text-decoration:underline;font-size:12px;">忘記密碼？</a>
+        </p>
+        <div id="registerExtra" style="display:none">
+          <input type="text" id="authName" placeholder="姓名" style="width:100%;padding:12px;border:1px solid var(--border);outline:none;margin-bottom:12px;font-family:inherit;font-size:13px">
+          <input type="tel" id="authPhone" placeholder="手機號碼" style="width:100%;padding:12px;border:1px solid var(--border);outline:none;margin-bottom:12px;font-family:inherit;font-size:13px">
+          <input type="text" id="authAddress" placeholder="常用收件地址（選填）" style="width:100%;padding:12px;border:1px solid var(--border);outline:none;margin-bottom:12px;font-family:inherit;font-size:13px">
+        </div>
+        <button type="submit" class="add-cart-btn" id="authSubmitBtn" style="margin-top:8px">登入</button>
+      </form>
+      <p style="text-align:center;margin-top:14px;font-size:12px;color:#999">
+        <span id="authSwitchText">還沒有帳號？</span>
+        <a href="#" id="authSwitchBtn" style="color:var(--accent);text-decoration:underline">立即註冊</a>
+      </p>
+      <!-- Forgot password mode (hidden by default) -->
+      <form id="forgotForm" style="display:none;margin-top:8px;">
+        <p style="font-size:13px;color:#555;margin-bottom:14px;line-height:1.6;">輸入您註冊時的 Email，我們會寄送重設密碼連結給您。</p>
+        <div id="forgotErr" style="color:#e44;font-size:12px;margin-bottom:8px;display:none;"></div>
+        <div id="forgotMsg" style="color:#3b7a57;font-size:13px;margin-bottom:8px;display:none;line-height:1.7;"></div>
+        <input type="email" id="forgotEmail" placeholder="您的 Email" required style="width:100%;padding:12px;border:1px solid var(--border);outline:none;margin-bottom:12px;font-family:inherit;font-size:13px;">
+        <button type="submit" class="add-cart-btn" id="forgotSubmitBtn">寄送重設連結</button>
+        <p style="text-align:center;margin-top:14px;font-size:12px;">
+          <a href="#" id="forgotBackBtn" style="color:var(--accent);text-decoration:underline">← 返回登入</a>
+        </p>
+      </form>
+      <div id="authUserPanel" style="display:none">
+        <p style="font-size:13px;margin-bottom:16px">👋 歡迎回來，<strong id="authUserName"></strong></p>
+
+        <!-- Saved profile view -->
+        <div id="profileView" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:14px;font-size:12px;line-height:1.9">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <strong style="font-size:13px;letter-spacing:1px">我的基本資料</strong>
+            <a href="#" id="editProfileBtn" style="color:var(--accent);font-size:12px;text-decoration:underline">編輯</a>
+          </div>
+          <div style="color:#666"><span style="display:inline-block;width:64px;color:#999">Email</span><span id="pvEmail">—</span></div>
+          <div style="color:#666"><span style="display:inline-block;width:64px;color:#999">姓名</span><span id="pvName">—</span></div>
+          <div style="color:#666"><span style="display:inline-block;width:64px;color:#999">電話</span><span id="pvPhone">—</span></div>
+          <div style="color:#666"><span style="display:inline-block;width:64px;color:#999">地址</span><span id="pvAddress">—</span></div>
+          <div style="color:#666;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)"><span style="display:inline-block;width:64px;color:#999">🎁 優惠券</span><span id="pvCoupons">—</span></div>
+        </div>
+
+        <!-- Inline profile edit form (hidden by default) -->
+        <form id="profileForm" style="display:none;margin-bottom:14px">
+          <p style="font-size:13px;letter-spacing:1px;margin-bottom:10px"><strong>編輯基本資料</strong></p>
+          <div id="profileErr" style="color:#e44;font-size:12px;margin-bottom:8px;display:none"></div>
+          <input type="text" id="pfName" placeholder="姓名" style="width:100%;padding:10px;border:1px solid var(--border);outline:none;margin-bottom:8px;font-family:inherit;font-size:13px">
+          <input type="tel" id="pfPhone" placeholder="手機號碼" style="width:100%;padding:10px;border:1px solid var(--border);outline:none;margin-bottom:8px;font-family:inherit;font-size:13px">
+          <input type="text" id="pfAddress" placeholder="常用收件地址" style="width:100%;padding:10px;border:1px solid var(--border);outline:none;margin-bottom:10px;font-family:inherit;font-size:13px">
+          <div style="display:flex;gap:8px">
+            <button type="button" id="cancelProfileBtn" style="flex:1;padding:10px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px">取消</button>
+            <button type="submit" style="flex:2;padding:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;letter-spacing:1px">儲存</button>
+          </div>
+        </form>
+
+        <button id="viewOrdersBtn" style="width:100%;padding:12px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:13px;margin-bottom:10px">📦 我的訂單</button>
+        <button id="logoutBtn" class="add-cart-btn">登出</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MY ORDERS DASHBOARD -->
+<div class="modal-overlay" id="ordersModal">
+  <div class="orders-dashboard">
+    <div class="orders-dash-head">
+      <h2>我的訂單</h2>
+      <span id="ordersModalClose">✕</span>
+    </div>
+
+    <div class="orders-tabs" id="ordersTabs">
+      <button class="ot-tab active" data-tab="all">全部訂單</button>
+      <button class="ot-tab" data-tab="pending">待出貨</button>
+      <button class="ot-tab" data-tab="shipped">已出貨</button>
+      <button class="ot-tab" data-tab="in_transit">待簽收</button>
+      <button class="ot-tab" data-tab="delivered">已取件</button>
+      <button class="ot-tab" data-tab="refund">退貨退款</button>
+    </div>
+
+    <div class="orders-toolbar">
+      <div class="orders-filters">
+        <label>類型：
+          <select id="orderTypeFilter">
+            <option value="all">全部</option>
+            <option value="transfer">銀行轉帳</option>
+            <option value="card">信用卡</option>
+            <option value="ecpay">ECPay</option>
+            <option value="cod">貨到付款</option>
+          </select>
+        </label>
+        <label>日期：
+          <select id="orderDateFilter">
+            <option value="all">全部</option>
+            <option value="7">近 7 天</option>
+            <option value="30">近 30 天</option>
+            <option value="90">近 90 天</option>
+            <option value="365">近一年</option>
+          </select>
+        </label>
+      </div>
+      <div class="orders-search">
+        <input id="orderSearch" placeholder="訂單號碼、商品名稱">
+        <button type="button" aria-label="搜尋">🔍</button>
+      </div>
+    </div>
+
+    <div id="ordersTable" class="orders-table"></div>
+
+    <div class="orders-pagination" id="ordersPagination"></div>
+
+    <div class="orders-foot">
+      <button type="button" id="goMemberCenterBtn" class="btn-outline">會員中心</button>
+      <button type="button" id="continueShoppingBtn" class="btn-dark">繼續購物</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-overlay" id="orderDetailModal">
+  <div class="modal" style="grid-template-columns:1fr;max-width:680px">
+    <div class="modal-body" style="padding:32px 32px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <h2 style="margin:0;font-size:20px">訂單詳情</h2>
+        <span id="orderDetailClose" style="font-size:24px;cursor:pointer;color:#999">✕</span>
+      </div>
+      <div id="orderDetailBody"></div>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

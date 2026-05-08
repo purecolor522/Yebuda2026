@@ -29,17 +29,25 @@ export function toast(msg, type = 'info') {
   if (!el) {
     el = document.createElement('div');
     el.className = 'admin-toast';
-    el.style.cssText = `position:fixed;bottom:24px;right:24px;background:#1f1d1a;
-      color:#fff;padding:12px 20px;font-size:13px;letter-spacing:0.08em;
-      z-index:1000;transition:transform 0.25s ease;transform:translateY(120%);
-      box-shadow:0 10px 30px rgba(0,0,0,0.25);border-radius:6px;max-width:360px;`;
+    el.style.cssText = `position:fixed;bottom:32px;right:32px;background:#1f1d1a;
+      color:#fff;padding:18px 28px;font-size:15px;font-weight:500;letter-spacing:0.02em;
+      z-index:9999;transition:transform 0.3s ease, opacity 0.3s ease;transform:translateY(150%);opacity:0;
+      box-shadow:0 12px 36px rgba(0,0,0,0.35);border-radius:8px;max-width:420px;line-height:1.5;`;
     document.body.appendChild(el);
   }
-  el.textContent = msg;
-  el.style.background = type === 'error' ? '#b13a2f' : type === 'success' ? '#3f6e3a' : '#1f1d1a';
-  requestAnimationFrame(() => el.style.transform = 'translateY(0)');
+  // Cap super-long error payloads so they don't blow up the UI
+  const safe = String(msg ?? '');
+  el.textContent = safe.length > 160 ? safe.slice(0, 157) + '…' : safe;
+  el.style.background = type === 'error' ? '#c84436' : type === 'success' ? '#3f6e3a' : '#1f1d1a';
+  requestAnimationFrame(() => {
+    el.style.transform = 'translateY(0)';
+    el.style.opacity = '1';
+  });
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.style.transform = 'translateY(120%)', 2400);
+  toast._t = setTimeout(() => {
+    el.style.transform = 'translateY(150%)';
+    el.style.opacity = '0';
+  }, 4000);
 }
 
 export async function ensureAuthed() {
@@ -85,6 +93,17 @@ export function renderShell(active) {
     await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
     location.href = '/admin/login.html';
   });
+
+  // Mobile-only "back to dashboard" chip — appears at top of every admin sub-page
+  // The dashboard itself doesn't need it (already there)
+  const onDashboard = path === '/admin/' || path.endsWith('/admin/index.html');
+  if (!onDashboard && !document.getElementById('mobile-back-chip')) {
+    const chip = document.createElement('a');
+    chip.id = 'mobile-back-chip';
+    chip.href = '/admin/';
+    chip.innerHTML = '← 後台主頁';
+    document.body.prepend(chip);
+  }
 }
 
 ensureAuthed();

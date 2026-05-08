@@ -78,8 +78,10 @@
         <div class="upload-box">
           <input id="file-input" type="file" accept="image/*" multiple hidden>
           <button type="button" class="btn-ghost" id="pick-btn">選擇檔案上傳</button>
-          <p class="muted">支援 JPG / PNG / WEBP，每檔 ≤ 10MB · 可一次上傳多張</p>
+          <button type="button" class="btn-ghost" id="ai-pick-btn" title="此頁是單件商品（多張角度照）。如要每張照片建立一件商品，請改用『AI 批次新增』">🤖 AI 一鍵辨識（單件）</button>
+          <p class="muted">支援 JPG / PNG / WEBP，每檔 ≤ 10MB · 此頁為「同一件商品的多張角度」<br>多件不同商品請用列表頁的 <a href="/admin/batch-create.html">🤖 AI 批次新增</a></p>
           <p id="upload-status" class="muted"></p>
+          <p id="ai-status" class="muted"></p>
         </div>
         <div id="gallery" class="gallery"></div>
         <p class="muted" style="margin-top:10px;">點選照片設為主圖（有金框）。</p>
