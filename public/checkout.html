@@ -3,97 +3,246 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Checkout · YEBUDA</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+<title>結帳 · YEBUDA 漂亮小姐</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { background: var(--bg); }
+  /* Header */
+  .ck-header { background: #fff; border-bottom: 1px solid var(--border); padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .ck-header a.brand { font-family: var(--font-serif); font-size: 22px; letter-spacing: 3px; color: var(--text); }
+  .ck-header a.brand small { display: block; font-family: var(--font-main); font-size: 9px; letter-spacing: 3px; color: var(--text-light); margin-top: -2px; }
+  .ck-header .steps { font-size: 12px; color: var(--text-light); letter-spacing: 2px; }
+  .ck-header .steps strong { color: var(--accent); }
+  .ck-header .back { font-size: 12px; color: var(--text-light); letter-spacing: 1px; }
+  .ck-header .back:hover { color: var(--accent); }
+
+  /* Page layout */
+  .ck-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; display: grid; grid-template-columns: 1fr 380px; gap: 36px; }
+  @media (max-width: 880px) { .ck-page { grid-template-columns: 1fr; gap: 22px; padding: 22px 14px 40px; } }
+
+  /* Section card */
+  .ck-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px; margin-bottom: 18px; }
+  .ck-card h2 { font-size: 14px; letter-spacing: 2.5px; font-weight: 600; color: #333; padding-bottom: 10px; border-bottom: 2px solid var(--text); display: inline-block; margin-bottom: 18px; }
+  @media (max-width: 880px) { .ck-card { padding: 18px 18px; } }
+
+  /* Inputs */
+  .ck-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .ck-row.full { grid-template-columns: 1fr; }
+  @media (max-width: 540px) { .ck-row { grid-template-columns: 1fr; } }
+  .ck-field { margin-bottom: 14px; }
+  .ck-field label { display: block; font-size: 12px; color: #555; margin-bottom: 5px; }
+  .ck-field .req { color: #e44; }
+  .ck-field input, .ck-field select, .ck-field textarea {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--border);
+    background: #fff; font-family: inherit; font-size: 14px; outline: none;
+    border-radius: 4px; transition: border-color 0.15s;
+  }
+  .ck-field input:focus, .ck-field select:focus { border-color: var(--accent); }
+
+  /* Method cards */
+  .method-grid { display: flex; flex-direction: column; gap: 8px; }
+  .method-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; transition: var(--transition); }
+  .method-card input { margin: 0; }
+  .method-card .mc-title { font-size: 14px; font-weight: 500; }
+  .method-card .mc-sub { font-size: 11px; color: #999; margin-top: 3px; }
+  .method-card:has(input:checked) { border-color: var(--accent); background: var(--bg); }
+
+  /* CVS pick block */
+  #cvsBlock { display: none; }
+  .pick-store-btn { width: 100%; padding: 14px; border: 2px solid var(--accent); background: #fff; color: var(--accent); cursor: pointer; font-size: 14px; font-weight: 600; border-radius: 6px; }
+  .cvs-selected { display: none; margin-top: 12px; padding: 14px; background: #f0fff4; border: 1px solid #3b7a57; border-radius: 6px; font-size: 13px; }
+
+  /* Address block */
+  #addressBlock { display: block; }
+
+  /* Recipient block */
+  .same-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #555; cursor: pointer; }
+
+  /* Summary (right column) */
+  .ck-summary { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 22px 24px; position: sticky; top: 24px; align-self: start; }
+  @media (max-width: 880px) { .ck-summary { position: static; } }
+  .ck-summary h2 { font-size: 14px; letter-spacing: 2.5px; font-weight: 600; color: #333; padding-bottom: 10px; border-bottom: 2px solid var(--text); margin-bottom: 16px; }
+  .sum-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f0e8; }
+  .sum-item:last-child { border-bottom: none; }
+  .sum-item img { width: 54px; height: 70px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+  .sum-item .si-info { flex: 1; font-size: 12px; min-width: 0; }
+  .sum-item .si-info h4 { font-size: 13px; font-weight: 500; line-height: 1.4; margin-bottom: 4px; }
+  .sum-item .si-info small { color: #999; font-size: 11px; }
+  .sum-item .si-price { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .sum-line { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; color: #555; }
+  .sum-line.discount { color: var(--accent); }
+  .sum-line.total {
+    border-top: 2px solid var(--text); margin-top: 10px; padding-top: 14px;
+    font-size: 16px; font-weight: 600; color: var(--text);
+  }
+  .sum-line.total span:last-child { color: var(--text); font-family: var(--font-serif); font-size: 22px; }
+  .ck-submit {
+    width: 100%; padding: 16px; background: var(--text); color: #fff; border: none;
+    cursor: pointer; font-size: 14px; letter-spacing: 3px; border-radius: 4px;
+    margin-top: 16px; transition: var(--transition);
+  }
+  .ck-submit:hover:not(:disabled) { background: var(--accent); }
+  .ck-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ck-err { color: #e44; font-size: 12px; margin-top: 10px; display: none; }
+
+  .empty-cart { text-align: center; padding: 80px 20px; color: #999; }
+  .empty-cart a { color: var(--accent); text-decoration: underline; }
+
+  /* Auto-fill chip */
+  .autofill-chip {
+    display: inline-block; margin-bottom: 14px; padding: 8px 14px; background: var(--bg);
+    border: 1px solid var(--accent); color: var(--accent); font-size: 12px; cursor: pointer;
+    border-radius: 4px; letter-spacing: 1px;
+  }
+  .autofill-chip:hover { background: var(--accent); color: #fff; }
+
+  /* CVS iframe overlay */
+  #cvsMapOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 5000; }
+  #cvsMapOverlay .frame-card { position: absolute; inset: max(env(safe-area-inset-top), 12px) 8px max(env(safe-area-inset-bottom), 12px) 8px; background: #fff; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+  #cvsMapOverlay .frame-bar { padding: 12px 16px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  #cvsMapOverlay button { background: none; border: none; cursor: pointer; }
+</style>
 </head>
 <body>
-<div id="header-root"></div>
 
-<section class="checkout-wrap">
-  <h1>Checkout</h1>
-  <div class="crumbs">購物車 · 2 / 3 · CHECKOUT</div>
+<header class="ck-header">
+  <a href="/" class="brand">YEBUDA<small>漂亮小姐</small></a>
+  <div class="steps">購物車 · <strong>結帳</strong> · 完成</div>
+  <a href="/" class="back">← 繼續購物</a>
+</header>
 
-  <form id="ck-form" novalidate>
-    <div class="ck-section">
-      <h3>Shipping Information</h3>
-      <div class="form-row">
-        <div class="field"><label>收件人姓名 *</label><input name="name" required></div>
-        <div class="field"><label>聯絡電話 *</label><input name="phone" required placeholder="09xx-xxx-xxx"></div>
-      </div>
-      <div class="form-row full">
-        <div class="field"><label>Email *</label><input type="email" name="email" required></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label>城市</label><input name="city" placeholder="台北市"></div>
-        <div class="field"><label>郵遞區號</label><input name="zip" placeholder="10041"></div>
-      </div>
-      <div class="form-row full">
-        <div class="field"><label>詳細地址 *</label><input name="address" required placeholder="街道、號碼、樓層"></div>
-      </div>
-    </div>
+<main class="ck-page" id="ckPage">
+  <!-- LEFT: form -->
+  <form id="checkoutForm" novalidate>
 
-    <div class="ck-section">
-      <h3>Payment Method</h3>
-      <div class="pay-options">
-        <label class="pay-opt selected">
-          <input type="radio" name="payment" value="ecpay" checked>
-          <div>
-            <div class="title">綠界 ECPay · 信用卡 / ATM / 超商</div>
-            <div class="hint">VISA · MASTER · JCB · Apple Pay · ATM · 全家 / 7-11 代收</div>
-          </div>
+    <!-- 訂購人 -->
+    <section class="ck-card">
+      <h2>訂購人資料</h2>
+      <button type="button" id="autofillBtn" class="autofill-chip" style="display:none">✨ 帶入我的會員資料</button>
+      <div class="ck-row">
+        <div class="ck-field"><label>姓名 <span class="req">*</span></label>
+          <input type="text" id="buyerName" required placeholder="王大明"></div>
+        <div class="ck-field"><label>電話 <span class="req">*</span></label>
+          <input type="tel" id="buyerPhone" required placeholder="0912345678"></div>
+      </div>
+      <div class="ck-row full">
+        <div class="ck-field"><label>Email <span class="req">*</span></label>
+          <input type="email" id="buyerEmail" required placeholder="example@gmail.com"></div>
+      </div>
+    </section>
+
+    <!-- 取貨方式 -->
+    <section class="ck-card">
+      <h2>取貨方式 <span class="req">*</span></h2>
+      <div class="method-grid">
+        <label class="method-card">
+          <input type="radio" name="shippingMethod" value="address" checked>
+          <div><div class="mc-title">🏠 宅配到府</div><div class="mc-sub">黑貓宅急便 · 滿 NT$3,000 免運</div></div>
         </label>
-        <label class="pay-opt">
-          <input type="radio" name="payment" value="transfer">
-          <div>
-            <div class="title">銀行 ATM 轉帳</div>
-            <div class="hint">下單後 24 小時內轉入指定帳戶，將手動確認</div>
-          </div>
+        <label class="method-card">
+          <input type="radio" name="shippingMethod" value="cvs-711">
+          <div><div class="mc-title" style="color:#e63946">🟧 7-ELEVEN 取貨</div><div class="mc-sub">至 7-11 門市自取 · 滿 NT$2,000 免運</div></div>
         </label>
-        <label class="pay-opt">
-          <input type="radio" name="payment" value="card">
-          <div>
-            <div class="title">信用卡直接付款 (測試)</div>
-            <div class="hint">Dev mode only · 正式上線後請使用綠界</div>
-          </div>
+        <label class="method-card">
+          <input type="radio" name="shippingMethod" value="cvs-fami">
+          <div><div class="mc-title" style="color:#00a651">🟩 全家取貨</div><div class="mc-sub">至全家門市自取 · 滿 NT$2,000 免運</div></div>
         </label>
       </div>
+    </section>
 
-      <div class="card-fields" id="card-fields">
-        <div class="form-row full">
-          <div class="field"><label>持卡人姓名</label><input name="card_name" placeholder="Card holder"></div>
-        </div>
-        <div class="form-row full">
-          <div class="field"><label>卡號</label><input name="card_number" placeholder="4242 4242 4242 4242" inputmode="numeric"></div>
-        </div>
-        <div class="form-row">
-          <div class="field"><label>到期日 MM/YY</label><input name="card_expiry" placeholder="12/28"></div>
-          <div class="field"><label>CVC</label><input name="card_cvc" placeholder="•••" inputmode="numeric"></div>
-        </div>
-        <p style="font-size:11px;color:var(--ink-soft);letter-spacing:0.12em;">
-          測試用 · 範例卡號 4242 4242 4242 4242 · 12/28 · 123
-        </p>
+    <!-- 收貨人 -->
+    <section class="ck-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin-bottom:0;">收貨人資料</h2>
+        <label class="same-toggle"><input type="checkbox" id="sameAsPurchaser" checked> 同訂購人</label>
       </div>
-    </div>
+      <div id="recipientFields" style="display:none;">
+        <div class="ck-row">
+          <div class="ck-field"><label>收貨人姓名 <span class="req">*</span></label>
+            <input type="text" id="rcpName" placeholder="王大明"></div>
+          <div class="ck-field"><label>收貨人電話 <span class="req">*</span></label>
+            <input type="tel" id="rcpPhone" placeholder="0912345678"></div>
+        </div>
+      </div>
+
+      <!-- 宅配地址 -->
+      <div id="addressBlock" class="ck-field">
+        <label>收件地址 <span class="req">*</span></label>
+        <input type="text" id="buyerAddress" placeholder="台北市信義區忠孝東路五段 100 號">
+      </div>
+
+      <!-- 超商取貨 -->
+      <div id="cvsBlock" class="ck-field">
+        <label>取貨門市 <span class="req">*</span></label>
+        <button type="button" class="pick-store-btn" id="pickStoreBtn">
+          <span id="pickStoreLabel">點擊選擇門市</span>
+        </button>
+        <div class="cvs-selected" id="cvsSelected">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
+            <strong style="color:#3b7a57">✓ <span id="cvsSelBrand"></span> <span id="cvsSelName"></span></strong>
+            <a href="#" id="cvsChangeBtn" style="font-size:12px;color:var(--accent);text-decoration:underline;white-space:nowrap;">更換門市</a>
+          </div>
+          <p id="cvsSelAddr" style="color:#666;font-size:12px;line-height:1.5;margin:0;"></p>
+        </div>
+        <input type="hidden" id="cvsBrand">
+        <input type="hidden" id="cvsStore">
+        <input type="hidden" id="cvsStoreId">
+        <input type="hidden" id="cvsStoreAddress">
+        <p style="font-size:11px;color:#999;margin-top:8px;line-height:1.5;">ⓘ 開啟綠界官方門市地圖，選好門市自動帶回</p>
+      </div>
+    </section>
+
+    <!-- 付款方式 -->
+    <section class="ck-card">
+      <h2>付款方式 <span class="req">*</span></h2>
+      <div class="method-grid">
+        <label class="method-card">
+          <input type="radio" name="paymentMethod" value="ecpay" checked>
+          <div><div class="mc-title">💳 信用卡</div><div class="mc-sub">綠界 ECPay · Visa / MasterCard / JCB · 即時付款</div></div>
+        </label>
+        <label class="method-card" id="payCvsCodLabel" style="display:none;">
+          <input type="radio" name="paymentMethod" value="cvs-cod">
+          <div><div class="mc-title">🏪 超商取貨付款</div><div class="mc-sub">取貨時於門市付現金</div></div>
+        </label>
+      </div>
+    </section>
+
+    <!-- 折價券 -->
+    <section class="ck-card" id="couponCard" style="display:none;">
+      <h2>🎁 折價券</h2>
+      <select id="couponSelect" class="ck-field" style="margin-bottom:0;">
+        <option value="">不使用折價券</option>
+      </select>
+    </section>
+
   </form>
 
-  <aside class="ck-summary" id="ck-summary">
-    <h3 style="font-size:13px;letter-spacing:0.3em;text-transform:uppercase;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:4px;">Order Summary</h3>
-    <div id="ck-lines"></div>
-    <div class="row"><span>商品小計</span><span id="ck-sub">-</span></div>
-    <div class="row"><span>運費</span><span id="ck-ship">-</span></div>
-    <div class="row total"><span>應付合計</span><span id="ck-total">-</span></div>
-    <button type="button" class="ck-submit" id="ck-submit">完成訂單 · PLACE ORDER</button>
-    <div id="ck-error" class="ck-error" style="display:none;"></div>
-    <p style="font-size:11px;color:var(--ink-soft);letter-spacing:0.15em;margin-top:12px;text-align:center;">
-      按下即同意 YEBUDA 服務條款與隱私政策
-    </p>
+  <!-- RIGHT: order summary -->
+  <aside class="ck-summary" id="ckSummary">
+    <h2>訂單摘要</h2>
+    <div id="summaryItems"></div>
+    <div class="sum-line"><span>商品小計</span><span id="csSubtotal">NT$0</span></div>
+    <div class="sum-line"><span>運費</span><span id="csShipping">—</span></div>
+    <div class="sum-line discount" id="csCouponLine" style="display:none;"><span id="csCouponLabel">折價券</span><span id="csCouponAmount">−NT$0</span></div>
+    <div class="sum-line total"><span>應付總計</span><span id="csTotal">NT$0</span></div>
+    <button type="submit" form="checkoutForm" class="ck-submit" id="submitBtn">確認下單 · PLACE ORDER</button>
+    <p class="ck-err" id="errMsg"></p>
+    <p style="font-size:11px;color:#999;letter-spacing:1px;margin-top:14px;text-align:center;">按下即同意 YEBUDA 服務條款</p>
   </aside>
-</section>
+</main>
 
-<div id="footer-root"></div>
-<script type="module" src="/js/checkout.js"></script>
+<!-- CVS map overlay -->
+<div id="cvsMapOverlay">
+  <div class="frame-card">
+    <div class="frame-bar">
+      <strong id="cvsMapTitle" style="font-size:14px;letter-spacing:1px;">選擇門市</strong>
+      <button type="button" id="cvsMapClose" style="font-size:22px;color:#999;padding:4px 10px;">✕</button>
+    </div>
+    <iframe id="cvsMapFrame" src="" style="flex:1;border:none;width:100%;"></iframe>
+  </div>
+</div>
+
+<script src="/js/checkout-page.js"></script>
 </body>
 </html>

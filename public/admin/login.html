@@ -6,6 +6,12 @@
 <title>後台登入 · YEBUDA</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/admin.css">
+<style>
+  /* Override the admin.css ".login-card input { margin-bottom:20px }" inside our wrapper
+     so the relative-positioned eye sits flush with the input. */
+  .login-card .pw-wrap { position: relative; margin-bottom: 20px; }
+  .login-card .pw-wrap > input.pw-input { margin-bottom: 0 !important; padding-right: 44px !important; }
+</style>
 </head>
 <body class="login-body">
 <main class="login-card">
@@ -15,15 +21,18 @@
   <form id="f" autocomplete="on">
     <label>管理員密碼</label>
     <div class="pw-wrap">
-      <input type="password" name="password" id="pw" required autofocus>
-      <button type="button" class="pw-toggle" id="pwToggle" aria-label="顯示/隱藏密碼" tabindex="-1">
+      <input type="password" name="password" id="pw" class="pw-input" required autofocus>
+      <span id="pwToggle" role="button" aria-label="顯示/隱藏密碼" tabindex="-1"
+            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                   width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+                   color:#999;cursor:pointer;border-radius:4px;user-select:none;">
         <svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
         </svg>
         <svg id="eyeClosed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
           <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.7 19.7 0 0 1 4.18-5.43"/><path d="M22.54 14.88A19.43 19.43 0 0 0 23 12s-4-8-11-8a11 11 0 0 0-3.06.44"/><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
         </svg>
-      </button>
+      </span>
     </div>
     <button type="submit">登入 · SIGN IN</button>
     <div id="err" class="err"></div>
@@ -31,39 +40,8 @@
   <p class="hint">員工專用</p>
   <a href="/" class="back">← 返回前台</a>
 </main>
-<style>
-  /* 比 .login-card button 高的 specificity，避免被全局登入鈕樣式蓋掉 */
-  .login-card .pw-wrap { position:relative; }
-  .login-card .pw-wrap input { padding-right:46px !important; width:100%; }
-  .login-card .pw-toggle {
-    position:absolute !important;
-    right:8px !important;
-    top:50% !important;
-    transform:translateY(-50%) !important;
-    width:32px !important;
-    height:32px !important;
-    min-height:32px !important;
-    padding:0 !important;
-    margin:0 !important;
-    background:transparent !important;
-    border:none !important;
-    color:#999 !important;
-    cursor:pointer;
-    display:flex !important;
-    align-items:center;
-    justify-content:center;
-    border-radius:4px !important;
-    box-shadow:none !important;
-    font-size:0 !important;
-    letter-spacing:0 !important;
-  }
-  .login-card .pw-toggle:hover {
-    color:var(--brand-dark, #c9a96e) !important;
-    background:rgba(0,0,0,0.04) !important;
-  }
-</style>
 <script>
-// Eye toggle
+// Eye toggle — use <span role="button"> to dodge .login-card button { width:100% } rule entirely
 document.getElementById('pwToggle').addEventListener('click', () => {
   const inp = document.getElementById('pw');
   const open = document.getElementById('eyeOpen');
