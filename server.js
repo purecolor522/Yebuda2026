@@ -241,6 +241,8 @@ app.post('/api/auth/register', async (req, res) => {
     name: name || '', phone: phone || '', address: address || '',
     createdAt: new Date().toISOString(),
     coupons: [makeWelcomeCoupon()],
+    savedCart: [],        // 登出時自動存入此處，下次登入還原
+    savedWishlist: [],
   };
   customers.push(customer);
   await writeJson(CUSTOMERS_FILE, customers);
@@ -258,6 +260,14 @@ app.post('/api/auth/login', checkRateLimit('customer'), async (req, res) => {
     return res.status(401).json({ error: 'Email 或密碼錯誤' });
   }
   recordSuccess('customer', req);
+
+  // 還原顧客上次登出時存下的購物車（直接寫回當前 sid 的 cart 檔）
+  const savedCart = Array.isArray(customer.savedCart) ? customer.savedCart : [];
+  if (savedCart.length) {
+    await saveCart(req.sid, savedCart);
+  }
+  // savedWishlist 由前端讀回 localStorage（透過 customer 物件回傳）
+
   const { password: _, ...safe } = customer;
   res.json({ ok: true, token: signToken(customer.id), customer: safe });
 });
@@ -269,6 +279,23 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   if (!customer) return res.status(404).json({ error: '找不到用戶' });
   const { password: _, ...safe } = customer;
   res.json(safe);
+});
+
+// 客戶端登出前呼叫：把當前的 cart + wishlist 存到 customer 記錄，下次登入會還原
+app.post('/api/auth/save-session', authMiddleware, async (req, res) => {
+  if (!req.customer) return res.status(401).json({ error: '請先登入' });
+  const customers = await readJson(CUSTOMERS_FILE, []);
+  const idx = customers.findIndex(c => c.id === req.customer.id);
+  if (idx === -1) return res.status(404).json({ error: '找不到用戶' });
+
+  // 從 session cart 抓現在的 cart
+  const cart = await getCart(req.sid);
+  const wishlist = Array.isArray(req.body?.wishlist) ? req.body.wishlist.filter(x => typeof x === 'string') : [];
+
+  customers[idx].savedCart     = cart;
+  customers[idx].savedWishlist = wishlist;
+  await writeJson(CUSTOMERS_FILE, customers);
+  res.json({ ok: true });
 });
 
 app.put('/api/auth/me', authMiddleware, async (req, res) => {

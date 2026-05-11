@@ -23,6 +23,12 @@ async function restoreSession() {
       currentCustomer = await res.json();
       updateMemberUI();
       stampActivity();          // mark a fresh activity on successful restore
+      // Restore wishlist from server snapshot if local is empty (e.g. new device same account)
+      if (Array.isArray(currentCustomer.savedWishlist) && wishlist.size === 0 && currentCustomer.savedWishlist.length) {
+        currentCustomer.savedWishlist.forEach(id => wishlist.add(id));
+        localStorage.setItem('yebuda_wishlist', JSON.stringify([...wishlist]));
+        syncWishlistUI();
+      }
     }
     else { localStorage.removeItem('yebuda_token'); }
   } catch {}
@@ -60,29 +66,44 @@ async function checkIdleAndMaybeLogout() {
 
 // One place that fully resets the browser session: token, profile, cart, wishlist, UI.
 // Called by both manual logout and idle auto-logout.
+// BEFORE clearing: persist current cart + wishlist to the customer record so the
+// same account gets them back on next login.
 async function clearAllSessionData() {
-  // 1. Token + activity
+  // 1. Snapshot current state to server (only if a token still exists)
+  const token = getToken();
+  if (token) {
+    try {
+      await fetch('/api/auth/save-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ wishlist: [...wishlist] }),
+      });
+    } catch {}
+  }
+
+  // 2. Token + activity
   localStorage.removeItem('yebuda_token');
   localStorage.removeItem(LAST_ACTIVITY_KEY);
   currentCustomer = null;
 
-  // 2. Wishlist (localStorage)
+  // 3. Wishlist (localStorage)
   wishlist.clear();
   localStorage.removeItem('yebuda_wishlist');
 
-  // 3. Cart (server-side, scoped by sid cookie)
+  // 4. Cart (server-side, scoped by sid cookie) — clear so next anon visitor on
+  //    this device sees an empty cart
   try {
     await fetch('/api/cart/all', { method: 'DELETE' });
   } catch {}
   cart = [];
 
-  // 4. Refresh UI everywhere
+  // 5. Refresh UI everywhere
   updateMemberUI();
   syncWishlistUI();
   setCartCountBadge(0);
   renderCart(0);
 
-  // 5. Close any auth-dependent modals/drawers
+  // 6. Close any auth-dependent modals/drawers
   document.getElementById('authModal')?.classList.remove('show');
   document.getElementById('ordersModal')?.classList.remove('show');
   document.getElementById('orderDetailModal')?.classList.remove('show');
@@ -110,6 +131,7 @@ function updateMemberUI() {
     if (autofillBtn) autofillBtn.style.display = 'block';
   } else {
     lbl.textContent = '';
+    lbl.style.cssText = 'display:none';   // 完全隱藏，不留圓圈殘跡
     const autofillBtn = document.getElementById('autofillBtn');
     if (autofillBtn) autofillBtn.style.display = 'none';
   }
@@ -695,6 +717,16 @@ function bindEvents() {
       localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));   // start the idle timer
       currentCustomer = data.customer;
       updateMemberUI();
+
+      // 還原帳號綁定的 wishlist + cart（登入時 server 已把 savedCart 寫回 sid cart）
+      if (Array.isArray(data.customer.savedWishlist)) {
+        wishlist.clear();
+        data.customer.savedWishlist.forEach(id => wishlist.add(id));
+        localStorage.setItem('yebuda_wishlist', JSON.stringify([...wishlist]));
+        syncWishlistUI();
+      }
+      await loadCart();
+
       document.getElementById('authModal').classList.remove('show');
       showToast(authMode === 'register' ? `歡迎加入 ${data.customer.name || data.customer.email}！` : `歡迎回來！`);
     } catch { errEl.textContent = '連線錯誤，請稍後再試'; errEl.style.display = 'block'; }
