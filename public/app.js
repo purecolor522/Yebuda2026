@@ -52,19 +52,42 @@ function isIdleExpired() {
   return (Date.now() - Number(raw)) > IDLE_TIMEOUT_MS;
 }
 
-function checkIdleAndMaybeLogout() {
+async function checkIdleAndMaybeLogout() {
   if (!getToken() || !isIdleExpired()) return;
-  // Expired — force logout without calling server (token still valid server-side,
-  // we just locally invalidate to enforce a tighter inactivity window).
+  await clearAllSessionData();
+  try { showToast('閒置 30 分鐘已自動登出，歡迎再次登入 ✨'); } catch {}
+}
+
+// One place that fully resets the browser session: token, profile, cart, wishlist, UI.
+// Called by both manual logout and idle auto-logout.
+async function clearAllSessionData() {
+  // 1. Token + activity
   localStorage.removeItem('yebuda_token');
   localStorage.removeItem(LAST_ACTIVITY_KEY);
   currentCustomer = null;
+
+  // 2. Wishlist (localStorage)
+  wishlist.clear();
+  localStorage.removeItem('yebuda_wishlist');
+
+  // 3. Cart (server-side, scoped by sid cookie)
+  try {
+    await fetch('/api/cart/all', { method: 'DELETE' });
+  } catch {}
+  cart = [];
+
+  // 4. Refresh UI everywhere
   updateMemberUI();
-  // Close any auth-required modals that might be open
+  syncWishlistUI();
+  setCartCountBadge(0);
+  renderCart(0);
+
+  // 5. Close any auth-dependent modals/drawers
   document.getElementById('authModal')?.classList.remove('show');
   document.getElementById('ordersModal')?.classList.remove('show');
   document.getElementById('orderDetailModal')?.classList.remove('show');
-  try { showToast('閒置 30 分鐘已自動登出，歡迎再次登入 ✨'); } catch {}
+  document.getElementById('wishlistModal')?.classList.remove('show');
+  document.getElementById('cartDrawer')?.classList.remove('open');
 }
 
 function initIdleAutoLogout() {
@@ -677,12 +700,9 @@ function bindEvents() {
     } catch { errEl.textContent = '連線錯誤，請稍後再試'; errEl.style.display = 'block'; }
   });
 
-  // Logout
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem('yebuda_token');
-    localStorage.removeItem(LAST_ACTIVITY_KEY);
-    currentCustomer = null;
-    updateMemberUI();
+  // Logout — also clears cart + wishlist for privacy (next user/anon session starts clean)
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await clearAllSessionData();
     document.getElementById('authModal').classList.remove('show');
     showToast('已成功登出');
   });
@@ -1028,6 +1048,13 @@ function updateWishCountBadge() {
   else { badge.style.display = 'none'; }
 }
 
+function setCartCountBadge(n) {
+  const badge = document.getElementById('cartCount');
+  if (!badge) return;
+  badge.textContent = String(n);
+  badge.style.display = n > 0 ? 'flex' : 'none';
+}
+
 function openWishlistModal() {
   renderWishlist();
   document.getElementById('wishlistModal').classList.add('show');
@@ -1128,7 +1155,7 @@ function renderCart(total = 0) {
   if (cart.length === 0) {
     el.innerHTML = '<p style="text-align:center;padding:40px 0;color:#999">購物車是空的</p>';
     document.getElementById('cartTotal').textContent = 'NT$0';
-    document.getElementById('cartCount').textContent = '0';
+    setCartCountBadge(0);
     return;
   }
   el.innerHTML = cart.map((item) => {
@@ -1161,7 +1188,7 @@ function renderCart(total = 0) {
   }).join('');
 
   document.getElementById('cartTotal').textContent = `NT$${total.toLocaleString()}`;
-  document.getElementById('cartCount').textContent = cart.reduce((s, c) => s + c.qty, 0);
+  setCartCountBadge(cart.reduce((s, c) => s + c.qty, 0));
 
   // Bind per-line handlers
   document.querySelectorAll('.cart-item').forEach(row => {

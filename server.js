@@ -193,6 +193,12 @@ app.delete('/api/cart', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Empty the entire cart for this session (used on logout)
+app.delete('/api/cart/all', async (req, res) => {
+  await saveCart(req.sid, []);
+  res.json({ ok: true });
+});
+
 // =================================================================
 // Customer Auth
 // =================================================================
