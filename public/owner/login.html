@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老闆專區 · YEBUDA</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans TC',sans-serif;background:#1a1815;color:#e8e4df;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{background:#26221d;padding:48px 40px;border-radius:6px;width:100%;max-width:380px;border:1px solid #3a342c}
+  h1{font-family:'Cormorant Garamond',serif;font-size:30px;letter-spacing:5px;text-align:center;color:#c9a96e;margin-bottom:4px}
+  .sub{text-align:center;font-size:11px;color:#8c8274;letter-spacing:3px;margin-bottom:30px}
+  label{display:block;font-size:11px;color:#8c8274;letter-spacing:2px;margin-bottom:8px}
+  input{width:100%;padding:12px 14px;background:#1a1815;border:1px solid #3a342c;color:#e8e4df;font-family:inherit;font-size:14px;outline:none;margin-bottom:18px;border-radius:3px}
+  input:focus{border-color:#c9a96e}
+  button{width:100%;padding:14px;background:#c9a96e;color:#1a1815;border:none;font-size:13px;letter-spacing:3px;cursor:pointer;font-weight:600;border-radius:3px}
+  button:hover{background:#dcb87e}
+  button:disabled{opacity:0.6;cursor:not-allowed}
+  .err{color:#e09090;font-size:12px;margin-bottom:14px;display:none}
+  .back{display:block;text-align:center;margin-top:18px;font-size:11px;color:#6a6257;text-decoration:none}
+  .back:hover{color:#c9a96e}
+  .note{margin-top:14px;padding:12px;background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.3);font-size:11px;color:#a89472;line-height:1.6;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>YEBUDA</h1>
+  <p class="sub">OWNER · 老闆專區</p>
+  <p class="err" id="err"></p>
+  <form id="loginForm">
+    <label>老闆密碼</label>
+    <input type="password" id="pwd" autocomplete="current-password" required autofocus>
+    <button type="submit" id="submitBtn">進入</button>
+  </form>
+  <p class="note">⚠ 此區為老闆專用，員工請從 <a href="/admin/login.html" style="color:#c9a96e">員工後台</a> 登入。本區可查看進貨成本、利潤、機密數據。</p>
+  <a href="/" class="back">← 回到 YEBUDA 首頁</a>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('err');
+  const btn = document.getElementById('submitBtn');
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '驗證中…';
+  try {
+    const res = await fetch('/api/owner/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: document.getElementById('pwd').value }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '登入失敗');
+    location.href = '/owner/';
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '進入';
+  }
+});
+</script>
+</body>
+</html>

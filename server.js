@@ -15,6 +15,10 @@ import {
   adminPassword, issueAdminCookie, clearAdminCookie,
   requireAdmin, isAdmin
 } from './lib/auth.js';
+import {
+  ownerPassword, issueOwnerCookie, clearOwnerCookie,
+  requireOwner, isOwner
+} from './lib/owner-auth.js';
 import { classifyProductImage, isAvailable as aiAvailable } from './lib/ai-classify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,10 +26,12 @@ const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = process.env.NODE_ENV === 'production'
   ? path.join(__dirname, 'data', 'uploads')
   : path.join(__dirname, 'uploads');
-const PRODUCTS_FILE  = path.join(DATA_DIR, 'products.json');
-const ORDERS_FILE    = path.join(DATA_DIR, 'orders.json');
-const CARTS_FILE     = path.join(DATA_DIR, 'carts.json');
-const CUSTOMERS_FILE = path.join(DATA_DIR, 'customers.json');
+const PRODUCTS_FILE   = path.join(DATA_DIR, 'products.json');
+const ORDERS_FILE     = path.join(DATA_DIR, 'orders.json');
+const CARTS_FILE      = path.join(DATA_DIR, 'carts.json');
+const CUSTOMERS_FILE  = path.join(DATA_DIR, 'customers.json');
+const PURCHASES_FILE  = path.join(DATA_DIR, 'purchases.json');
+const STOCKADJ_FILE   = path.join(DATA_DIR, 'stock-adjustments.json');
 
 fssync.mkdirSync(UPLOAD_DIR, { recursive: true });
 fssync.mkdirSync(DATA_DIR, { recursive: true });
@@ -910,6 +916,195 @@ app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
   });
 });
 
+// =================================================================
+// OWNER (進貨 / 庫存 / 帳務) — 比 admin 更高權限，員工看不到這層
+// =================================================================
+app.post('/api/owner/login', (req, res) => {
+  const { password } = req.body || {};
+  if (password !== ownerPassword()) return res.status(401).json({ error: '密碼錯誤' });
+  issueOwnerCookie(res);
+  res.json({ ok: true });
+});
+app.post('/api/owner/logout', (_req, res) => { clearOwnerCookie(res); res.json({ ok: true }); });
+app.get('/api/owner/whoami', (req, res) => res.json({ loggedIn: isOwner(req) }));
+
+// --- 進貨記錄 ---
+// 每筆進貨包含：日期、廠商、品項陣列（productId, qty, unitCost）、總金額、運費、備註
+app.get('/api/owner/purchases', requireOwner, async (_req, res) => {
+  const list = await readJson(PURCHASES_FILE, []);
+  res.json(list);
+});
+
+app.post('/api/owner/purchases', requireOwner, async (req, res) => {
+  const { date, vendor, items, shipping, note } = req.body || {};
+  if (!date || !Array.isArray(items) || !items.length) {
+    return res.status(400).json({ error: '請填寫日期與至少一個品項' });
+  }
+  const cleanItems = items.map(it => ({
+    productId: String(it.productId || '').trim(),
+    qty: Math.max(0, Number(it.qty) || 0),
+    unitCost: Math.max(0, Number(it.unitCost) || 0),
+  })).filter(it => it.productId && it.qty > 0);
+  if (!cleanItems.length) return res.status(400).json({ error: '品項資料不完整' });
+
+  const subtotal = cleanItems.reduce((s, it) => s + it.qty * it.unitCost, 0);
+  const shippingCost = Math.max(0, Number(shipping) || 0);
+  const purchase = {
+    id: 'PO' + Date.now().toString().slice(-9) + crypto.randomInt(10, 99),
+    date, vendor: String(vendor || '').trim(),
+    items: cleanItems,
+    shipping: shippingCost,
+    subtotal,
+    total: subtotal + shippingCost,
+    note: String(note || '').trim(),
+    createdAt: new Date().toISOString(),
+  };
+  const list = await readJson(PURCHASES_FILE, []);
+  list.unshift(purchase);
+  await writeJson(PURCHASES_FILE, list);
+
+  // 進貨後自動加上庫存
+  const products = await rawProducts();
+  let updated = false;
+  for (const it of cleanItems) {
+    const p = products.find(pp => pp.id === it.productId);
+    if (p) {
+      p.stock = (Number(p.stock) || 0) + it.qty;
+      // 第一次設定 cost 或更新為最新進價（簡單起見，覆寫 — 未來可改加權平均）
+      if (it.unitCost > 0) p.cost = it.unitCost;
+      updated = true;
+    }
+  }
+  if (updated) await writeJson(PRODUCTS_FILE, products);
+
+  res.json({ ok: true, purchase });
+});
+
+app.delete('/api/owner/purchases/:id', requireOwner, async (req, res) => {
+  const list = await readJson(PURCHASES_FILE, []);
+  const idx = list.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: '找不到此進貨記錄' });
+  const removed = list.splice(idx, 1)[0];
+  // 撤銷該筆進貨增加的庫存
+  const products = await rawProducts();
+  for (const it of removed.items) {
+    const p = products.find(pp => pp.id === it.productId);
+    if (p) p.stock = Math.max(0, (Number(p.stock) || 0) - it.qty);
+  }
+  await writeJson(PRODUCTS_FILE, products);
+  await writeJson(PURCHASES_FILE, list);
+  res.json({ ok: true });
+});
+
+// --- 庫存盤點 / 手動調整 ---
+app.get('/api/owner/stock-adjustments', requireOwner, async (_req, res) => {
+  const list = await readJson(STOCKADJ_FILE, []);
+  res.json(list);
+});
+
+app.post('/api/owner/stock-adjustments', requireOwner, async (req, res) => {
+  const { productId, newStock, reason } = req.body || {};
+  if (!productId || newStock === undefined) return res.status(400).json({ error: 'productId 與 newStock 必填' });
+  const products = await rawProducts();
+  const p = products.find(pp => pp.id === productId);
+  if (!p) return res.status(404).json({ error: '找不到商品' });
+  const before = Number(p.stock) || 0;
+  const after = Math.max(0, Number(newStock) || 0);
+  p.stock = after;
+  await writeJson(PRODUCTS_FILE, products);
+
+  const log = {
+    id: 'ADJ' + Date.now().toString().slice(-9) + crypto.randomInt(10, 99),
+    productId, productName: p.name,
+    before, after, delta: after - before,
+    reason: String(reason || '').trim(),
+    createdAt: new Date().toISOString(),
+  };
+  const list = await readJson(STOCKADJ_FILE, []);
+  list.unshift(log);
+  await writeJson(STOCKADJ_FILE, list);
+  res.json({ ok: true, log });
+});
+
+// --- 損益報表 ---
+// 範圍：last_30d (預設) / this_month / last_month / all
+app.get('/api/owner/finance', requireOwner, async (req, res) => {
+  const range = String(req.query.range || 'last_30d');
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  let from = 0, to = now;
+  if (range === 'last_30d') from = now - 30 * DAY;
+  else if (range === 'this_month') {
+    const d = new Date();
+    from = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  } else if (range === 'last_month') {
+    const d = new Date();
+    from = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+    to = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  }
+
+  const orders = await readJson(ORDERS_FILE, []);
+  const purchases = await readJson(PURCHASES_FILE, []);
+  const products = await getProducts();
+
+  const inRange = (iso) => {
+    const t = Date.parse(iso);
+    return t >= from && t < to;
+  };
+
+  // 已付款訂單算營收（包含 shipped/delivered/in_transit 等等付款後的狀態）
+  const PAID_STATUSES = ['paid', 'shipped', 'in_transit', 'delivered'];
+  const paidOrders = orders.filter(o => PAID_STATUSES.includes(o.status) && inRange(o.createdAt));
+
+  const revenue = paidOrders.reduce((s, o) => s + (Number(o.subtotal) || 0), 0);
+  const shippingIncome = paidOrders.reduce((s, o) => s + (Number(o.shipping) || 0), 0);
+  const couponDiscount = paidOrders.reduce((s, o) => s + (Number(o.couponDiscount) || 0), 0);
+  const totalIncome = paidOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+  // COGS：把每筆訂單裡的每件商品的「成本 × 數量」加總
+  let cogs = 0;
+  const productSales = new Map();
+  for (const o of paidOrders) {
+    for (const it of (o.items || [])) {
+      const p = products.find(pp => pp.id === it.productId);
+      const cost = Number(p?.cost) || 0;
+      cogs += cost * (it.qty || 0);
+      const key = it.productId;
+      const cur = productSales.get(key) || { id: key, name: it.name, qty: 0, revenue: 0, cost: 0 };
+      cur.qty += it.qty || 0;
+      cur.revenue += it.subtotal || 0;
+      cur.cost += cost * (it.qty || 0);
+      productSales.set(key, cur);
+    }
+  }
+
+  const purchaseCostInRange = purchases
+    .filter(p => inRange(p.date))
+    .reduce((s, p) => s + (Number(p.total) || 0), 0);
+
+  const grossProfit = revenue - cogs;
+  const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+
+  const bestSellers = Array.from(productSales.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10);
+
+  res.json({
+    range, from, to,
+    orderCount: paidOrders.length,
+    revenue,                // 商品營收（不含運費）
+    shippingIncome,         // 收取的運費
+    couponDiscount,         // 折抵總額（資訊用）
+    totalIncome,            // 實收（含運費，扣折價券）
+    cogs,                   // 銷貨成本
+    grossProfit,            // 毛利 = revenue − cogs
+    grossMargin: Number(grossMargin.toFixed(1)),
+    purchaseCostInRange,    // 區間內的進貨金額（現金流參考）
+    bestSellers,
+  });
+});
+
 // SPA fallback
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/media/') || req.path.startsWith('/uploads/')) return next();
@@ -921,7 +1116,9 @@ const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`\n  YEBUDA shop  ⟶  http://localhost:${PORT}`);
   console.log(`  Admin login  ⟶  http://localhost:${PORT}/admin/login.html`);
-  console.log(`  Default password: ${adminPassword()}${process.env.ADMIN_PASSWORD ? '' : ' (set ADMIN_PASSWORD env var for production)'}`);
+  console.log(`  Owner login  ⟶  http://localhost:${PORT}/owner/login.html`);
+  console.log(`  Admin password: ${adminPassword()}${process.env.ADMIN_PASSWORD ? '' : ' (set ADMIN_PASSWORD env var for production)'}`);
+  console.log(`  Owner password: ${ownerPassword()}${process.env.OWNER_PASSWORD ? '' : ' (set OWNER_PASSWORD env var for production)'}`);
   console.log(`  ECPay mode:  ${process.env.ECPAY_ENV === 'production' ? 'PRODUCTION' : 'STAGE (test)'}`);
   // Print LAN IPs so phone testing on the same Wi-Fi is one tap away
   try {

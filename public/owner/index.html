@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>儀表板 · 老闆專區 · YEBUDA</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/owner/owner.css">
+</head>
+<body>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>儀表板</h1>
+      <p class="crumbs">Owner · 近 30 天總覽</p>
+    </div>
+  </header>
+
+  <section class="stat-grid" id="statGrid">
+    <div class="stat"><div class="label">商品營收</div><div class="value" id="sRevenue">—</div></div>
+    <div class="stat green"><div class="label">毛利</div><div class="value" id="sProfit">—</div><div class="delta" id="sMargin"></div></div>
+    <div class="stat red"><div class="label">本期進貨</div><div class="value" id="sPurchase">—</div></div>
+    <div class="stat blue"><div class="label">訂單數</div><div class="value" id="sOrders">—</div></div>
+  </section>
+
+  <section class="card">
+    <h2>熱銷商品（近 30 天）</h2>
+    <table>
+      <thead>
+        <tr><th>商品</th><th class="c">售出</th><th class="r">營收</th><th class="r">成本</th><th class="r">毛利</th></tr>
+      </thead>
+      <tbody id="bestSellers"><tr><td colspan="5" class="muted" style="text-align:center;padding:30px;">載入中…</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<script type="module">
+import { api, TWD, ensureOwner, renderTopBar, toast } from '/owner/js/owner-app.js';
+await ensureOwner();
+renderTopBar('index');
+
+try {
+  const fin = await api('/api/owner/finance?range=last_30d');
+  document.getElementById('sRevenue').textContent  = TWD(fin.revenue);
+  document.getElementById('sProfit').textContent   = TWD(fin.grossProfit);
+  document.getElementById('sMargin').textContent   = `毛利率 ${fin.grossMargin}%`;
+  document.getElementById('sPurchase').textContent = TWD(fin.purchaseCostInRange);
+  document.getElementById('sOrders').textContent   = String(fin.orderCount);
+
+  const tb = document.getElementById('bestSellers');
+  if (!fin.bestSellers?.length) {
+    tb.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:30px;">近 30 天還沒訂單</td></tr>`;
+  } else {
+    tb.innerHTML = fin.bestSellers.map(b => {
+      const profit = b.revenue - b.cost;
+      return `<tr>
+        <td>${b.name}</td>
+        <td class="c">${b.qty}</td>
+        <td class="r">${TWD(b.revenue)}</td>
+        <td class="r muted">${TWD(b.cost)}</td>
+        <td class="r" style="color:${profit>0?'#3b7a57':'#c84436'};font-weight:600;">${TWD(profit)}</td>
+      </tr>`;
+    }).join('');
+  }
+} catch (e) { toast(e.message, 'error'); }
+</script>
+</body>
+</html>

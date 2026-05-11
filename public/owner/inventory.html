@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>進貨記錄 · 老闆專區</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/owner/owner.css">
+<style>
+  .new-purchase { background: #fff; border: 1px solid #e6ddd0; border-radius: 6px; padding: 22px; margin-bottom: 22px; }
+  .new-purchase .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .new-purchase label { display: block; font-size: 11px; color: #888; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .new-purchase .inp { width: 100%; }
+  .item-row { display: grid; grid-template-columns: 2fr 80px 110px 110px 30px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .item-row select, .item-row input { padding: 8px 10px; font-size: 13px; border: 1px solid #d8d0c0; border-radius: 3px; outline: none; }
+  .item-row .rm { color: #c84436; cursor: pointer; text-align: center; font-size: 18px; }
+  .item-total { font-size: 13px; color: #888; text-align: right; padding-right: 10px; }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #d8d0c0; }
+  .summary-row .total { font-size: 18px; font-weight: 600; color: #2c2a26; }
+  .purchase-row td { padding: 14px 12px; }
+  .purchase-items { font-size: 12px; color: #666; line-height: 1.6; }
+  .purchase-items small { color: #999; }
+  @media (max-width: 700px) {
+    .new-purchase .row { grid-template-columns: 1fr; }
+    .item-row { grid-template-columns: 1fr; gap: 6px; }
+    .item-row .rm { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>進貨記錄</h1>
+      <p class="crumbs">Inventory · 進貨會自動加到對應商品的庫存</p>
+    </div>
+  </header>
+
+  <!-- 新增進貨 -->
+  <div class="new-purchase">
+    <h2 style="font-size:14px;letter-spacing:2px;font-weight:600;color:#555;margin-bottom:14px;">＋ 新增進貨單</h2>
+    <div class="row">
+      <div><label>進貨日期</label><input type="date" id="poDate" class="inp"></div>
+      <div><label>廠商 / 供應商</label><input type="text" id="poVendor" class="inp" placeholder="例：韓國 ABC 服飾"></div>
+      <div><label>運費 / 報關費</label><input type="number" id="poShipping" class="inp" placeholder="0" min="0"></div>
+    </div>
+    <label style="font-size:11px;color:#888;letter-spacing:1.5px;">品項（自動加進該商品庫存）</label>
+    <div id="poItems"></div>
+    <button type="button" class="btn btn-ghost btn-xs" id="addItemBtn">+ 增加一筆品項</button>
+    <div style="margin-top:14px;">
+      <label style="font-size:11px;color:#888;letter-spacing:1.5px;">備註（選填）</label>
+      <input type="text" id="poNote" class="inp" style="width:100%;" placeholder="例：第 3 季新貨、含開發票">
+    </div>
+    <div class="summary-row">
+      <span class="muted" id="poSummary">尚未加入品項</span>
+      <button type="button" class="btn btn-primary" id="savePoBtn">儲存進貨單</button>
+    </div>
+  </div>
+
+  <!-- 歷史進貨 -->
+  <div class="card">
+    <h2>歷史進貨記錄</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>編號 / 日期</th>
+          <th>廠商</th>
+          <th>品項</th>
+          <th class="r">運費</th>
+          <th class="r">總額</th>
+          <th class="c">操作</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"><tr><td colspan="6" class="muted" style="text-align:center;padding:30px;">載入中…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<script type="module">
+import { api, TWD, fmtDate, ensureOwner, renderTopBar, toast } from '/owner/js/owner-app.js';
+await ensureOwner();
+renderTopBar('inventory');
+
+// Default date to today
+document.getElementById('poDate').valueAsDate = new Date();
+
+let products = [];
+let purchases = [];
+
+async function loadAll() {
+  [products, purchases] = await Promise.all([
+    fetch('/api/products').then(r => r.json()),
+    api('/api/owner/purchases'),
+  ]);
+  // Sort products by id for stable picker
+  products.sort((a, b) => a.id.localeCompare(b.id));
+  renderItems();
+  renderHistory();
+}
+
+function renderItems() {
+  const root = document.getElementById('poItems');
+  if (!root.children.length) addItemRow();
+  recalc();
+}
+
+function addItemRow() {
+  const root = document.getElementById('poItems');
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  const opts = products.map(p =>
+    `<option value="${p.id}">${p.id} · ${p.name}</option>`
+  ).join('');
+  div.innerHTML = `
+    <select class="poProduct"><option value="">— 選擇商品 —</option>${opts}</select>
+    <input type="number" class="poQty" min="1" placeholder="數量">
+    <input type="number" class="poUnitCost" min="0" step="1" placeholder="單價成本">
+    <div class="item-total">—</div>
+    <span class="rm" title="移除">✕</span>`;
+  root.appendChild(div);
+  div.querySelectorAll('input,select').forEach(el => el.addEventListener('input', recalc));
+  div.querySelector('.rm').addEventListener('click', () => { div.remove(); recalc(); });
+  recalc();
+}
+
+function recalc() {
+  let total = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    const qty = Number(row.querySelector('.poQty').value) || 0;
+    const cost = Number(row.querySelector('.poUnitCost').value) || 0;
+    const sub = qty * cost;
+    row.querySelector('.item-total').textContent = sub ? TWD(sub) : '—';
+    total += sub;
+  });
+  const shipping = Number(document.getElementById('poShipping').value) || 0;
+  const grand = total + shipping;
+  document.getElementById('poSummary').innerHTML = grand
+    ? `小計 ${TWD(total)} + 運費 ${TWD(shipping)} = <strong style="font-size:16px;color:#2c2a26;">${TWD(grand)}</strong>`
+    : '尚未加入品項';
+}
+
+document.getElementById('addItemBtn').addEventListener('click', addItemRow);
+document.getElementById('poShipping').addEventListener('input', recalc);
+
+document.getElementById('savePoBtn').addEventListener('click', async () => {
+  const date = document.getElementById('poDate').value;
+  const vendor = document.getElementById('poVendor').value.trim();
+  const shipping = Number(document.getElementById('poShipping').value) || 0;
+  const note = document.getElementById('poNote').value.trim();
+  const items = [...document.querySelectorAll('.item-row')].map(row => ({
+    productId: row.querySelector('.poProduct').value,
+    qty: Number(row.querySelector('.poQty').value) || 0,
+    unitCost: Number(row.querySelector('.poUnitCost').value) || 0,
+  })).filter(it => it.productId && it.qty > 0);
+
+  if (!date) return toast('請選擇進貨日期', 'error');
+  if (!items.length) return toast('請至少加入一筆有效品項', 'error');
+
+  try {
+    await api('/api/owner/purchases', {
+      method: 'POST',
+      body: { date, vendor, items, shipping, note },
+    });
+    toast('進貨單已儲存，庫存已更新', 'success');
+    // Reset form
+    document.getElementById('poItems').innerHTML = '';
+    document.getElementById('poVendor').value = '';
+    document.getElementById('poShipping').value = '';
+    document.getElementById('poNote').value = '';
+    addItemRow();
+    recalc();
+    await loadAll();
+  } catch (e) { toast(e.message, 'error'); }
+});
+
+function renderHistory() {
+  const tb = document.getElementById('historyBody');
+  if (!purchases.length) {
+    tb.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:30px;">還沒有進貨記錄</td></tr>`;
+    return;
+  }
+  tb.innerHTML = purchases.map(p => {
+    const itemSummary = p.items.map(it => {
+      const prod = products.find(pp => pp.id === it.productId);
+      const name = prod ? prod.name : it.productId;
+      return `${name} ×${it.qty} <small>@ ${TWD(it.unitCost)}</small>`;
+    }).join('<br>');
+    return `<tr class="purchase-row" data-id="${p.id}">
+      <td><strong>${p.id}</strong><div class="muted" style="font-size:11px;">${p.date}</div></td>
+      <td>${p.vendor || '<span class="muted">—</span>'}</td>
+      <td class="purchase-items">${itemSummary}${p.note ? `<div class="muted" style="margin-top:4px;font-size:11px;">📝 ${p.note}</div>` : ''}</td>
+      <td class="r">${TWD(p.shipping)}</td>
+      <td class="r" style="font-weight:600;">${TWD(p.total)}</td>
+      <td class="c"><button class="btn btn-danger btn-xs delPo" data-id="${p.id}">刪除</button></td>
+    </tr>`;
+  }).join('');
+  tb.querySelectorAll('.delPo').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      if (!confirm(`刪除進貨單 ${id} ？\n會自動把對應的庫存扣回。`)) return;
+      try {
+        await api(`/api/owner/purchases/${id}`, { method: 'DELETE' });
+        toast('已刪除', 'success');
+        await loadAll();
+      } catch (e) { toast(e.message, 'error'); }
+    });
+  });
+}
+
+await loadAll();
+</script>
+</body>
+</html>

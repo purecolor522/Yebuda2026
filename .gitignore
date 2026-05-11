@@ -7,6 +7,8 @@ npm-debug.log
 data/carts.json
 data/orders.json
 data/customers.json
+data/purchases.json
+data/stock-adjustments.json
 uploads/*
 !uploads/.gitkeep
 *.log
