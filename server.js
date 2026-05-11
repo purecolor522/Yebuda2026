@@ -469,7 +469,12 @@ async function sendOrderNotification(order) {
   }
 }
 
-async function buildPendingOrder(sid, customer, payment, coupon = null) {
+// 免運門檻：超商取貨 NT$2,000 / 宅配 NT$3,000
+function freeShippingThreshold(shippingMethod) {
+  return shippingMethod === 'cvs' ? 2000 : 3000;
+}
+
+async function buildPendingOrder(sid, customer, payment, coupon = null, shippingMethod = 'address') {
   const items = await getCart(sid);
   if (!items.length) throw new Error('購物車是空的');
   const products = await getProducts();
@@ -481,7 +486,7 @@ async function buildPendingOrder(sid, customer, payment, coupon = null) {
     };
   });
   const subtotal = lineItems.reduce((s, x) => s + x.subtotal, 0);
-  const shipping = subtotal >= 3000 ? 0 : 80;
+  const shipping = subtotal >= freeShippingThreshold(shippingMethod) ? 0 : 80;
   const couponDiscount = coupon && coupon.type === 'fixed'
     ? Math.min(coupon.amount, subtotal)   // cap so total never goes below shipping
     : 0;
@@ -566,7 +571,7 @@ app.post('/api/checkout', async (req, res) => {
       // Real credit card via ECPay — defer building the redirect page to a GET endpoint
       // so the customer's browser does a full-page navigation (avoids HTML-injection bugs).
       const order = await buildPendingOrder(req.sid, customer,
-        { method: 'ecpay', status: 'pending' }, appliedCoupon);
+        { method: 'ecpay', status: 'pending' }, appliedCoupon, shippingMethod);
       await finishOrder(order);
       res.json({ ok: true, ecpayUrl: `/api/ecpay/redirect/${order.id}`, order: { id: order.id } });
       return;
@@ -575,7 +580,7 @@ app.post('/api/checkout', async (req, res) => {
     if (payment === 'cvs-cod') {
       // Pay-on-pickup at convenience store
       const order = await buildPendingOrder(req.sid, customer,
-        { method: 'cvs-cod', status: 'pending' }, appliedCoupon);
+        { method: 'cvs-cod', status: 'pending' }, appliedCoupon, shippingMethod);
       await finishOrder(order);
       res.json({ ok: true, order });
       return;

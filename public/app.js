@@ -1681,6 +1681,11 @@ function syncShippingMethodUI() {
     const pickedBrand = document.getElementById('cvsBrand').value;
     if (pickedBrand && pickedBrand !== brand) clearCvsSelection();
   }
+
+  // 運費依取貨方式即時重算
+  if (document.getElementById('checkoutSummary')?.style.display === 'block') {
+    updateCheckoutSummary();
+  }
 }
 
 function syncPaymentMethodUI() {
@@ -1726,12 +1731,16 @@ function populateCouponSelect() {
 function getCheckoutSummary() {
   // Pull totals from current cart state
   const subtotal = cart.reduce((s, x) => s + (x.subtotal || 0), 0);
-  const shipping = subtotal === 0 ? 0 : (subtotal >= 3000 ? 0 : 80);
+  // 免運門檻依取貨方式：超商 2000、宅配 3000
+  const uiShip = document.querySelector('input[name="shippingMethod"]:checked')?.value || 'address';
+  const isCvs = uiShip === 'cvs-711' || uiShip === 'cvs-fami';
+  const freeThreshold = isCvs ? 2000 : 3000;
+  const shipping = subtotal === 0 ? 0 : (subtotal >= freeThreshold ? 0 : 80);
   const couponId = document.getElementById('couponSelect')?.value;
   const coupon = couponId ? (currentCustomer?.coupons || []).find(c => c.id === couponId) : null;
   const discount = coupon ? Math.min(coupon.amount, subtotal) : 0;
   const total = Math.max(0, subtotal + shipping - discount);
-  return { subtotal, shipping, discount, total, coupon };
+  return { subtotal, shipping, discount, total, coupon, freeThreshold, isCvs };
 }
 
 function updateCheckoutSummary() {
@@ -1740,7 +1749,18 @@ function updateCheckoutSummary() {
   if (!box) return;
   box.style.display = 'block';
   document.getElementById('csSubtotal').textContent = `NT$${s.subtotal.toLocaleString()}`;
-  document.getElementById('csShipping').textContent = s.shipping === 0 ? '免運' : `NT$${s.shipping}`;
+
+  // 運費顯示：免運就顯示「免運 ✨」；還沒到門檻就顯示「NT$80（再 NT$X 免運）」
+  const shipEl = document.getElementById('csShipping');
+  if (s.shipping === 0) {
+    shipEl.textContent = '免運 ✨';
+    shipEl.style.color = 'var(--accent)';
+  } else {
+    const gap = s.freeThreshold - s.subtotal;
+    shipEl.innerHTML = `NT$${s.shipping} <span style="font-size:11px;color:#999">再 NT$${gap.toLocaleString()} ${s.isCvs ? '超商' : '宅配'}免運</span>`;
+    shipEl.style.color = '';
+  }
+
   const line = document.getElementById('csCouponLine');
   if (s.discount > 0) {
     line.style.display = 'flex';
