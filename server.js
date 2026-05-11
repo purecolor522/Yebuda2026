@@ -943,6 +943,12 @@ app.get('/api/owner/whoami', (req, res) => res.json({ loggedIn: isOwner(req) }))
 
 // --- 進貨記錄 ---
 // 每筆進貨包含：日期、廠商、品項陣列（productId, qty, unitCost）、總金額、運費、備註
+// Owner read-only access to all products (including hidden ones) for stocktake views
+app.get('/api/owner/products', requireOwner, async (_req, res) => {
+  const list = await getProducts();
+  res.json(list);
+});
+
 app.get('/api/owner/purchases', requireOwner, async (_req, res) => {
   const list = await readJson(PURCHASES_FILE, []);
   res.json(list);

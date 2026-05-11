@@ -74,15 +74,13 @@ let searchTerm = '';
 const changed = new Map(); // productId → { newStock, reason }
 
 async function loadAll() {
+  // Use the owner-scoped products endpoint (returns hidden products too) instead
+  // of /api/admin/products — owner doesn't have admin cookie, so admin route 401s
+  // which would bounce the user back to login.
   [products, history] = await Promise.all([
-    fetch('/api/products').then(r => r.json()),
+    api('/api/owner/products'),
     api('/api/owner/stock-adjustments'),
   ]);
-  // We also need hidden products — admin endpoint returns those
-  try {
-    const all = await api('/api/admin/products');
-    if (Array.isArray(all)) products = all;
-  } catch {}
   render();
   renderHistory();
 }

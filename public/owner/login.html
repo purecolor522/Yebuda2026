@@ -21,6 +21,10 @@
   .back{display:block;text-align:center;margin-top:18px;font-size:11px;color:#6a6257;text-decoration:none}
   .back:hover{color:#c9a96e}
   .note{margin-top:14px;padding:12px;background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.3);font-size:11px;color:#a89472;line-height:1.6;border-radius:3px}
+  .pw-wrap{position:relative}
+  .pw-wrap input{padding-right:42px;width:100%}
+  .pw-toggle{position:absolute;right:8px;top:8px;width:32px;height:32px;padding:0;background:transparent;border:none;color:#8c8274;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .15s,background .15s}
+  .pw-toggle:hover{color:#c9a96e;background:rgba(201,169,110,0.08)}
 </style>
 </head>
 <body>
@@ -30,7 +34,17 @@
   <p class="err" id="err"></p>
   <form id="loginForm">
     <label>老闆密碼</label>
-    <input type="password" id="pwd" autocomplete="current-password" required autofocus>
+    <div class="pw-wrap">
+      <input type="password" id="pwd" autocomplete="current-password" required autofocus>
+      <button type="button" class="pw-toggle" id="pwToggle" aria-label="顯示/隱藏密碼" tabindex="-1">
+        <svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+        <svg id="eyeClosed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.7 19.7 0 0 1 4.18-5.43"/><path d="M22.54 14.88A19.43 19.43 0 0 0 23 12s-4-8-11-8a11 11 0 0 0-3.06.44"/><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </button>
+    </div>
     <button type="submit" id="submitBtn">進入</button>
   </form>
   <p class="note">⚠ 此區為老闆專用，員工請從 <a href="/admin/login.html" style="color:#c9a96e">員工後台</a> 登入。</p>
@@ -38,6 +52,22 @@
 </div>
 
 <script>
+// 眼睛切換
+document.getElementById('pwToggle').addEventListener('click', () => {
+  const inp = document.getElementById('pwd');
+  const open = document.getElementById('eyeOpen');
+  const closed = document.getElementById('eyeClosed');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    open.style.display = 'none';
+    closed.style.display = 'block';
+  } else {
+    inp.type = 'password';
+    open.style.display = 'block';
+    closed.style.display = 'none';
+  }
+});
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const err = document.getElementById('err');

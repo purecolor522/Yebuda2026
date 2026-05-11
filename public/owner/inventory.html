@@ -89,7 +89,7 @@ let purchases = [];
 
 async function loadAll() {
   [products, purchases] = await Promise.all([
-    fetch('/api/products').then(r => r.json()),
+    api('/api/owner/products'),
     api('/api/owner/purchases'),
   ]);
   // Sort products by id for stable picker
