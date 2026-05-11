@@ -10,11 +10,72 @@ function authHeaders() { const t = getToken(); return t ? { 'Content-Type': 'app
 async function restoreSession() {
   const token = getToken();
   if (!token) return;
+  // Idle-timeout check before honoring the stored token: if the user hasn't
+  // touched the site for IDLE_TIMEOUT_MS, treat it as a session expiry.
+  if (isIdleExpired()) {
+    localStorage.removeItem('yebuda_token');
+    localStorage.removeItem('yebuda_last_activity');
+    return;
+  }
   try {
     const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-    if (res.ok) { currentCustomer = await res.json(); updateMemberUI(); }
+    if (res.ok) {
+      currentCustomer = await res.json();
+      updateMemberUI();
+      stampActivity();          // mark a fresh activity on successful restore
+    }
     else { localStorage.removeItem('yebuda_token'); }
   } catch {}
+}
+
+// ===== Idle auto-logout =====
+// Customer is logged out automatically if they don't interact for IDLE_TIMEOUT_MS.
+// To change the timeout, edit the constant below (millis).
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;          // 30 分鐘無動作就登出
+const ACTIVITY_THROTTLE_MS = 10 * 1000;          // 最多 10 秒寫一次 localStorage
+const IDLE_CHECK_INTERVAL_MS = 60 * 1000;        // 每分鐘檢查一次是否該登出
+const LAST_ACTIVITY_KEY = 'yebuda_last_activity';
+
+let lastActivityWrite = 0;
+
+function stampActivity() {
+  const now = Date.now();
+  if (now - lastActivityWrite < ACTIVITY_THROTTLE_MS) return;
+  lastActivityWrite = now;
+  if (getToken()) localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+}
+
+function isIdleExpired() {
+  if (!getToken()) return false;
+  const raw = localStorage.getItem(LAST_ACTIVITY_KEY);
+  if (!raw) return false;
+  return (Date.now() - Number(raw)) > IDLE_TIMEOUT_MS;
+}
+
+function checkIdleAndMaybeLogout() {
+  if (!getToken() || !isIdleExpired()) return;
+  // Expired — force logout without calling server (token still valid server-side,
+  // we just locally invalidate to enforce a tighter inactivity window).
+  localStorage.removeItem('yebuda_token');
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
+  currentCustomer = null;
+  updateMemberUI();
+  // Close any auth-required modals that might be open
+  document.getElementById('authModal')?.classList.remove('show');
+  document.getElementById('ordersModal')?.classList.remove('show');
+  document.getElementById('orderDetailModal')?.classList.remove('show');
+  try { showToast('閒置 30 分鐘已自動登出，歡迎再次登入 ✨'); } catch {}
+}
+
+function initIdleAutoLogout() {
+  // Bind passive listeners on common interaction events
+  ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(ev =>
+    document.addEventListener(ev, stampActivity, { passive: true })
+  );
+  // Periodic check
+  setInterval(checkIdleAndMaybeLogout, IDLE_CHECK_INTERVAL_MS);
+  // Check immediately in case tab was reopened after long idle
+  checkIdleAndMaybeLogout();
 }
 
 function updateMemberUI() {
@@ -124,6 +185,7 @@ async function init() {
   initScrollAnimations();
   await restoreSession();
   await loadCart();
+  initIdleAutoLogout();
 }
 
 async function loadCart() {
@@ -607,6 +669,7 @@ function bindEvents() {
         return;
       }
       localStorage.setItem('yebuda_token', data.token);
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));   // start the idle timer
       currentCustomer = data.customer;
       updateMemberUI();
       document.getElementById('authModal').classList.remove('show');
@@ -617,6 +680,7 @@ function bindEvents() {
   // Logout
   document.getElementById('logoutBtn').addEventListener('click', () => {
     localStorage.removeItem('yebuda_token');
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
     currentCustomer = null;
     updateMemberUI();
     document.getElementById('authModal').classList.remove('show');
