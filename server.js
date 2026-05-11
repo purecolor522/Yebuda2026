@@ -19,6 +19,7 @@ import {
   ownerPassword, issueOwnerCookie, clearOwnerCookie,
   requireOwner, isOwner
 } from './lib/owner-auth.js';
+import { checkRateLimit, recordFailure, recordSuccess } from './lib/rate-limit.js';
 import { classifyProductImage, isAvailable as aiAvailable } from './lib/ai-classify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -241,12 +242,16 @@ app.post('/api/auth/register', async (req, res) => {
   res.json({ ok: true, token: signToken(customer.id), customer: safe });
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', checkRateLimit('customer'), async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: '請填寫 Email 和密碼' });
   const customers = await readJson(CUSTOMERS_FILE, []);
   const customer = customers.find(c => c.email === email);
-  if (!customer || !(await bcrypt.compare(password, customer.password))) return res.status(401).json({ error: 'Email 或密碼錯誤' });
+  if (!customer || !(await bcrypt.compare(password, customer.password))) {
+    recordFailure('customer', req);
+    return res.status(401).json({ error: 'Email 或密碼錯誤' });
+  }
+  recordSuccess('customer', req);
   const { password: _, ...safe } = customer;
   res.json({ ok: true, token: signToken(customer.id), customer: safe });
 });
@@ -706,9 +711,13 @@ app.get('/api/orders/:id', async (req, res) => {
 // =================================================================
 // Admin
 // =================================================================
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', checkRateLimit('admin'), (req, res) => {
   const { password } = req.body || {};
-  if (password !== adminPassword()) return res.status(401).json({ error: '密碼錯誤' });
+  if (password !== adminPassword()) {
+    recordFailure('admin', req);
+    return res.status(401).json({ error: '密碼錯誤' });
+  }
+  recordSuccess('admin', req);
   issueAdminCookie(res);
   res.json({ ok: true });
 });
@@ -919,9 +928,13 @@ app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
 // =================================================================
 // OWNER (進貨 / 庫存 / 帳務) — 比 admin 更高權限，員工看不到這層
 // =================================================================
-app.post('/api/owner/login', (req, res) => {
+app.post('/api/owner/login', checkRateLimit('owner'), (req, res) => {
   const { password } = req.body || {};
-  if (password !== ownerPassword()) return res.status(401).json({ error: '密碼錯誤' });
+  if (password !== ownerPassword()) {
+    recordFailure('owner', req);
+    return res.status(401).json({ error: '密碼錯誤' });
+  }
+  recordSuccess('owner', req);
   issueOwnerCookie(res);
   res.json({ ok: true });
 });
