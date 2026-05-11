@@ -139,15 +139,24 @@ function updateMemberUI() {
 
 function openAuthModal() {
   const isLoggedIn = !!currentCustomer;
-  document.getElementById('authForm').style.display = isLoggedIn ? 'none' : 'block';
-  document.getElementById('authSwitchText').parentElement.style.display = isLoggedIn ? 'none' : 'block';
-  document.getElementById('authUserPanel').style.display = isLoggedIn ? 'block' : 'none';
+  // Always reset to login mode first so previous state (forgot/register) is cleared.
+  setAuthMode('login');
+
   if (isLoggedIn) {
+    // Member-area view: hide every login/register/forgot UI element + show profile
+    document.getElementById('authForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('authSwitchText').parentElement.style.display = 'none';
+    document.getElementById('forgotLink').style.display = 'none';
+    document.getElementById('authModalTitle').textContent = '會員專區';
+    document.getElementById('authUserPanel').style.display = 'block';
     document.getElementById('authUserName').textContent = currentCustomer.name || currentCustomer.email;
     renderProfileView();
     showProfileEdit(false);
+  } else {
+    document.getElementById('authUserPanel').style.display = 'none';
   }
-  setAuthMode('login');
+
   document.getElementById('authModal').classList.add('show');
 }
 
