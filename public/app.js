@@ -269,7 +269,7 @@ function renderProducts(container, items) {
         ${hasAlt ? `<img src="${altImage}" alt="${p.name}" loading="lazy" class="pi-alt">` : ''}
         ${p.badge ? `<span class="product-badge ${badgeClass}">${p.badge}</span>` : ''}
         <span class="product-wish ${wished ? 'active' : ''}" data-wish="${p.id}">${wished ? '❤️' : '♡'}</span>
-        ${hasAlt ? `<div class="product-cart-cta">加入購物車</div>` : ''}
+        <div class="product-cart-cta">加入購物車</div>
       </div>
       <div class="product-info">
         <h3>${p.name}</h3>
