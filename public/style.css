@@ -79,7 +79,35 @@ ul { list-style:none; }
 .product-card:hover { transform:translateY(-4px); }
 .product-img-wrap { position:relative; overflow:hidden; border-radius:6px; aspect-ratio:3/4; background:#eee; }
 .product-img-wrap img { width:100%; height:100%; object-fit:cover; transition:transform .6s ease; }
-.product-card:hover .product-img-wrap img { transform:scale(1.05); }
+/* Default hover: simple zoom (used when no alt image available) */
+.product-card:not(.has-alt):hover .product-img-wrap img { transform:scale(1.05); }
+
+/* Hover-swap variant: stack two images, fade between on hover/focus */
+.product-card.has-alt .product-img-wrap .pi-primary,
+.product-card.has-alt .product-img-wrap .pi-alt {
+  position:absolute; inset:0; transition: opacity .35s ease;
+}
+.product-card.has-alt .product-img-wrap .pi-alt { opacity:0; }
+@media (hover: hover) {
+  .product-card.has-alt:hover .product-img-wrap .pi-primary { opacity:0; }
+  .product-card.has-alt:hover .product-img-wrap .pi-alt { opacity:1; }
+}
+/* Add-to-cart CTA overlay at the bottom of the image */
+.product-cart-cta {
+  position:absolute; left:0; right:0; bottom:0;
+  padding:14px 0; text-align:center;
+  background:rgba(201,169,110,0.92); color:#fff;
+  font-size:14px; letter-spacing:3px; font-weight:500;
+  transform: translateY(100%); transition: transform .35s ease;
+  backdrop-filter: blur(2px);
+}
+@media (hover: hover) {
+  .product-card.has-alt:hover .product-cart-cta { transform: translateY(0); }
+}
+/* On touch devices: ".has-alt.tapped" toggled by JS shows the alt state on tap */
+.product-card.has-alt.tapped .product-img-wrap .pi-primary { opacity:0; }
+.product-card.has-alt.tapped .product-img-wrap .pi-alt { opacity:1; }
+.product-card.has-alt.tapped .product-cart-cta { transform: translateY(0); }
 .product-badge { position:absolute; top:12px; left:12px; padding:4px 10px; font-size:10px; letter-spacing:1px; color:#fff; border-radius:3px; font-weight:500; }
 .badge-new { background:#e8734a; }
 .badge-best { background:var(--accent); }

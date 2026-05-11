@@ -32,15 +32,35 @@
   <a href="/" class="back">← 返回前台</a>
 </main>
 <style>
-  .pw-wrap { position:relative; }
-  .pw-wrap input { padding-right:42px; width:100%; }
-  .pw-toggle {
-    position:absolute; right:8px; top:50%; transform:translateY(-50%);
-    width:32px; height:32px; padding:0; background:transparent; border:none;
-    color:#999; cursor:pointer; display:flex; align-items:center; justify-content:center;
-    border-radius:4px; transition:color 0.15s, background 0.15s;
+  /* 比 .login-card button 高的 specificity，避免被全局登入鈕樣式蓋掉 */
+  .login-card .pw-wrap { position:relative; }
+  .login-card .pw-wrap input { padding-right:46px !important; width:100%; }
+  .login-card .pw-toggle {
+    position:absolute !important;
+    right:8px !important;
+    top:50% !important;
+    transform:translateY(-50%) !important;
+    width:32px !important;
+    height:32px !important;
+    min-height:32px !important;
+    padding:0 !important;
+    margin:0 !important;
+    background:transparent !important;
+    border:none !important;
+    color:#999 !important;
+    cursor:pointer;
+    display:flex !important;
+    align-items:center;
+    justify-content:center;
+    border-radius:4px !important;
+    box-shadow:none !important;
+    font-size:0 !important;
+    letter-spacing:0 !important;
   }
-  .pw-toggle:hover { color:var(--brand-dark, #c9a96e); background:rgba(0,0,0,0.04); }
+  .login-card .pw-toggle:hover {
+    color:var(--brand-dark, #c9a96e) !important;
+    background:rgba(0,0,0,0.04) !important;
+  }
 </style>
 <script>
 // Eye toggle

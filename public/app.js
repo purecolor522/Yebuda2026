@@ -262,12 +262,18 @@ function renderProducts(container, items) {
     const badgeClass = p.badge === 'NEW' ? 'badge-new' : p.badge === 'BEST' ? 'badge-best' : p.badge === 'HOT' ? 'badge-sale' : '';
     const wished = wishlist.has(p.id);
     const colorsHtml = (p.colors || []).map(c => `<span class="color-dot" style="background:${c}"></span>`).join('');
-    
-    return `<div class="product-card" data-id="${p.id}">
+
+    // Hover image swap: if product has at least one extraImage, show it on hover
+    const altImage = (Array.isArray(p.extraImages) && p.extraImages[0]) ? p.extraImages[0] : null;
+    const hasAlt = !!altImage;
+
+    return `<div class="product-card ${hasAlt ? 'has-alt' : ''}" data-id="${p.id}">
       <div class="product-img-wrap">
-        <img src="${p.image}" alt="${p.name}" loading="lazy">
+        <img src="${p.image}" alt="${p.name}" loading="lazy" class="pi-primary">
+        ${hasAlt ? `<img src="${altImage}" alt="${p.name}" loading="lazy" class="pi-alt">` : ''}
         ${p.badge ? `<span class="product-badge ${badgeClass}">${p.badge}</span>` : ''}
         <span class="product-wish ${wished ? 'active' : ''}" data-wish="${p.id}">${wished ? '❤️' : '♡'}</span>
+        ${hasAlt ? `<div class="product-cart-cta">加入購物車</div>` : ''}
       </div>
       <div class="product-info">
         <h3>${p.name}</h3>
