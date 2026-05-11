@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>列印訂單 · YEBUDA</title>
+<style>
+  @page { size: A4; margin: 14mm 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Noto Sans TC", -apple-system, sans-serif; color: #222; background: #f4f1ec; padding: 30px 20px; }
+  .sheet { background: #fff; max-width: 760px; margin: 0 auto; padding: 32px 36px; box-shadow: 0 6px 30px rgba(0,0,0,.08); border-radius: 4px; }
+
+  /* HEADER */
+  .head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #2c2a26; margin-bottom: 18px; }
+  .brand h1 { font-family: "Cormorant Garamond", serif; font-size: 28px; letter-spacing: 4px; font-weight: 500; color: #2c2a26; }
+  .brand p { font-size: 11px; color: #6a6257; letter-spacing: 3px; margin-top: 2px; }
+  .doc-meta { text-align: right; font-size: 12px; line-height: 1.7; color: #555; }
+  .doc-meta strong { color: #2c2a26; }
+
+  /* SECTIONS */
+  h2 { font-size: 12px; font-weight: 600; color: #888; letter-spacing: 3px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; text-transform: uppercase; }
+  .row { display: flex; gap: 24px; margin-bottom: 18px; }
+  .col { flex: 1; }
+  .col p { font-size: 13px; line-height: 1.7; }
+  .col p .label { display: inline-block; width: 56px; color: #999; }
+
+  /* ITEMS TABLE */
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+  thead { background: #faf7f2; }
+  th { text-align: left; padding: 8px 10px; font-size: 11px; color: #6a6257; letter-spacing: 1.5px; font-weight: 500; border-bottom: 1px solid #ddd; }
+  th.r, td.r { text-align: right; }
+  th.c, td.c { text-align: center; }
+  td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  td .name { font-weight: 500; }
+  td .variant { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* TOTALS */
+  .totals { margin-top: 12px; margin-left: auto; max-width: 300px; font-size: 13px; }
+  .totals .line { display: flex; justify-content: space-between; padding: 6px 0; color: #555; }
+  .totals .line.discount { color: #c9a96e; }
+  .totals .grand { font-size: 16px; font-weight: 600; color: #2c2a26; border-top: 2px solid #2c2a26; padding-top: 10px; margin-top: 6px; }
+
+  /* FOOT */
+  .foot { margin-top: 28px; padding-top: 14px; border-top: 1px dashed #ccc; font-size: 11px; color: #888; line-height: 1.7; }
+  .foot strong { color: #555; }
+  .actions { max-width: 760px; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
+  .btn { padding: 10px 22px; font-size: 13px; border: 1px solid #2c2a26; background: #fff; cursor: pointer; letter-spacing: 1.5px; border-radius: 3px; }
+  .btn.primary { background: #2c2a26; color: #fff; }
+  .btn:hover { opacity: 0.85; }
+
+  /* PRINT */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; max-width: 100%; padding: 0; margin: 0; }
+    .actions, .no-print { display: none !important; }
+    .head { page-break-after: avoid; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="actions no-print">
+  <button class="btn" onclick="window.close()">關閉</button>
+  <button class="btn primary" onclick="window.print()">🖨 列印</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <p style="text-align:center;padding:40px 0;color:#888;">載入訂單中…</p>
+</div>
+
+<script type="module">
+const TWD = n => 'NT$' + Number(n || 0).toLocaleString('en-US');
+const SHIPPING_LABEL = { address: '宅配 - 黑貓宅急便', cvs: '超商取貨' };
+const PAYMENT_LABEL = {
+  ecpay: '信用卡（綠界）',
+  'cvs-cod': '超商取貨付款',
+  transfer: '銀行轉帳',
+  card: '信用卡', 'card-mock': '信用卡（測試）',
+  cod: '貨到付款',
+};
+const STATUS_LABEL = {
+  awaiting_payment: '待付款',
+  paid: '已付款',
+  shipped: '已出貨',
+  in_transit: '待簽收',
+  delivered: '已取件',
+  refund_requested: '退貨申請中',
+  refunded: '已退貨',
+  payment_failed: '付款失敗',
+  cancelled: '已取消',
+};
+
+async function load() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) return showErr('缺少訂單編號');
+
+  let orders;
+  try {
+    const res = await fetch('/api/admin/orders', { credentials: 'same-origin' });
+    if (res.status === 401) { location.href = '/admin/login.html?next=' + encodeURIComponent(location.href); return; }
+    if (!res.ok) throw new Error('讀取失敗');
+    orders = await res.json();
+  } catch (e) { return showErr(e.message); }
+
+  const o = orders.find(x => x.id === id);
+  if (!o) return showErr('找不到訂單 ' + id);
+  render(o);
+
+  // Auto-print after render — small delay to let images load
+  setTimeout(() => window.print(), 600);
+}
+
+function showErr(msg) {
+  document.getElementById('sheet').innerHTML = `<p style="text-align:center;padding:60px 0;color:#c84436;">${msg}</p>`;
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function shippingText(o) {
+  if (o.shipping?.method === 'cvs') {
+    return `${o.shipping.cvsBrand || '超商'} 取貨` + (o.shipping.cvsStore ? ` · ${o.shipping.cvsStore}` : '');
+  }
+  return SHIPPING_LABEL[o.shipping?.method] || SHIPPING_LABEL.address;
+}
+
+function render(o) {
+  const purchaserDifferent = o.purchaser &&
+    (o.purchaser.name !== o.customer?.name || o.purchaser.phone !== o.customer?.phone);
+
+  document.getElementById('sheet').innerHTML = `
+    <div class="head">
+      <div class="brand">
+        <h1>YEBUDA</h1>
+        <p>漂亮小姐 · ORDER INVOICE</p>
+      </div>
+      <div class="doc-meta">
+        <p><strong>訂單編號</strong></p>
+        <p style="font-family:monospace;font-size:14px;">${o.id}</p>
+        <p style="margin-top:6px"><strong>下單時間</strong></p>
+        <p>${fmtDate(o.createdAt)}</p>
+        <p style="margin-top:6px"><strong>狀態</strong> · ${STATUS_LABEL[o.status] || o.status}</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <h2>收件資訊</h2>
+        <p><span class="label">姓名</span>${o.customer?.name || ''}</p>
+        <p><span class="label">電話</span>${o.customer?.phone || ''}</p>
+        <p><span class="label">Email</span>${o.customer?.email || ''}</p>
+        <p><span class="label">地址</span>${o.customer?.address || ''}</p>
+      </div>
+      ${purchaserDifferent ? `
+      <div class="col">
+        <h2>訂購人</h2>
+        <p><span class="label">姓名</span>${o.purchaser.name}</p>
+        <p><span class="label">電話</span>${o.purchaser.phone}</p>
+        ${o.purchaser.email ? `<p><span class="label">Email</span>${o.purchaser.email}</p>` : ''}
+      </div>` : `
+      <div class="col">
+        <h2>運送 / 付款</h2>
+        <p><span class="label">取貨</span>${shippingText(o)}</p>
+        <p><span class="label">付款</span>${PAYMENT_LABEL[o.payment?.method] || o.payment?.method || '-'}</p>
+        ${o.trackingNo ? `<p><span class="label">物流</span>${o.trackingNo}</p>` : ''}
+      </div>`}
+    </div>
+
+    ${purchaserDifferent ? `
+    <div class="row">
+      <div class="col">
+        <h2>運送 / 付款</h2>
+        <p><span class="label">取貨</span>${shippingText(o)}</p>
+        <p><span class="label">付款</span>${PAYMENT_LABEL[o.payment?.method] || o.payment?.method || '-'}</p>
+        ${o.trackingNo ? `<p><span class="label">物流</span>${o.trackingNo}</p>` : ''}
+      </div>
+      <div class="col"></div>
+    </div>` : ''}
+
+    <h2 style="margin-top:8px;">商品明細</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>商品</th>
+          <th class="c" style="width:80px;">尺寸</th>
+          <th class="c" style="width:80px;">顏色</th>
+          <th class="c" style="width:60px;">數量</th>
+          <th class="r" style="width:90px;">單價</th>
+          <th class="r" style="width:100px;">小計</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(o.items || []).map(it => `
+          <tr>
+            <td><div class="name">${it.name}</div>${it.productId ? `<div class="variant">${it.productId}</div>` : ''}</td>
+            <td class="c">${it.size || '-'}</td>
+            <td class="c">${it.color || '-'}</td>
+            <td class="c">${it.qty}</td>
+            <td class="r">${TWD(it.price)}</td>
+            <td class="r">${TWD(it.subtotal)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <div class="line"><span>商品小計</span><span>${TWD(o.subtotal)}</span></div>
+      <div class="line"><span>運費</span><span>${o.shipping === 0 || o.shippingFee === 0 ? '免運' : TWD(o.shipping ?? o.shippingFee ?? 0)}</span></div>
+      ${o.couponDiscount > 0 ? `<div class="line discount"><span>折價券 ${o.coupon?.reason || ''}</span><span>− ${TWD(o.couponDiscount)}</span></div>` : ''}
+      <div class="line grand"><span>應付總計</span><span>${TWD(o.total)}</span></div>
+    </div>
+
+    <div class="foot">
+      <p><strong>YEBUDA 漂亮小姐</strong> · 韓系女裝精品</p>
+      <p>LINE @094efuba · Email yebuda22@gmail.com</p>
+      <p style="margin-top:8px;font-size:10px;color:#aaa;">此為訂單明細，列印於 ${fmtDate(new Date().toISOString())}</p>
+    </div>
+  `;
+}
+
+load();
+</script>
+</body>
+</html>

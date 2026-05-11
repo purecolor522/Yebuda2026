@@ -74,6 +74,7 @@ function render() {
         <button class="btn-xs btn-save">儲存變更</button>
         ${o.status === 'paid' ? `<button class="btn-xs btn-ship" style="background:#3b7a57;color:#fff;">📦 出貨</button>` : ''}
         ${(o.status === 'shipped' || o.status === 'in_transit') ? `<button class="btn-xs btn-deliver" style="background:#2f6fbf;color:#fff;">✅ 標記送達</button>` : ''}
+        <button class="btn-xs btn-print" style="background:#fff;color:#222;border:1px solid #222;">🖨 列印</button>
       </div>
     </div>`).join('');
 
@@ -108,6 +109,11 @@ function render() {
         toast('已標記為送達', 'success');
         load();
       } catch (e) { toast(e.message, 'error'); }
+    });
+
+    card.querySelector('.btn-print').addEventListener('click', () => {
+      const w = window.open(`/admin/print-order.html?id=${id}`, '_blank', 'width=900,height=900');
+      if (!w) toast('請允許彈出視窗', 'error');
     });
   });
 }
