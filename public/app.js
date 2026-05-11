@@ -210,10 +210,8 @@ function showForgotForm(open) {
   document.getElementById('forgotMsg').style.display = 'none';
 }
 
-// Lookbook 顯示哪 4 個商品 — 直接從商品資料庫抓圖片與名稱，
-// 因此「照片 = 該商品」，點下去自然開啟對應商品 modal。
-// 想換成不同商品，改下面這 4 個 id 即可（後台商品管理頁可看 id）。
-const LOOKBOOK_PRODUCT_IDS = ['y010', 'y001', 'y008', 'y011'];
+// Lookbook 顯示哪 4 個商品 — 自動挑 Best Seller 以外的前 4 件，避免兩區重複。
+// 想固定挑特定商品，可改成 ['id1','id2','id3','id4']。
 
 const instaImages = ['22','23','25','11','12','13'].map(n => `images/LINE_ALBUM_2026424_260507_${n}.jpg`);
 
@@ -288,9 +286,11 @@ function renderProducts(container, items) {
 // Pulls the actual product image + name + subtitle from the products catalog
 // so each lookbook tile IS a real product. Clicking opens that product's modal.
 function renderLookbook() {
-  const items = LOOKBOOK_PRODUCT_IDS
-    .map(id => products.find(p => p.id === id))
-    .filter(Boolean);
+  // Pick 4 products that are NOT in Best Seller (no BEST/HOT badge) so the two
+  // sections don't show the same products. Fall back to first 4 if everything
+  // is badged.
+  const nonBest = products.filter(p => p.badge !== 'BEST' && p.badge !== 'HOT');
+  const items = (nonBest.length >= 4 ? nonBest : products).slice(0, 4);
   if (!items.length) {
     document.getElementById('lookbookGrid').innerHTML = '';
     return;
