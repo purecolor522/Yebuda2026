@@ -5,6 +5,21 @@ const CATEGORIES = [
   ['knit', 'KNIT 毛衣'], ['dress', 'DRESS 洋裝'], ['pants', 'PANTS 褲'], ['set', 'SET 套裝'],
 ];
 
+const MANUAL_MODE = new URLSearchParams(location.search).get('manual') === '1';
+
+// Adapt page chrome to mode
+if (MANUAL_MODE) {
+  document.title = '手動批次新增商品 · YEBUDA Admin';
+  document.getElementById('pageTitle').textContent = '手動批次新增商品';
+  document.getElementById('emptyTitle').textContent = '📷 手動批次新增';
+  document.getElementById('emptyDesc').innerHTML =
+    '選擇多張商品照片，每張照片建立一件商品。<br>所有欄位由你自己填寫，不會經過 AI。';
+  // Hide AI-only buttons
+  document.getElementById('retryFailedBtn').style.display = 'none';
+  // Show the "set all category" helper (more useful when no AI fills it in)
+  document.getElementById('defaultCatBtn').style.display = '';
+}
+
 let cards = []; // { id, imageUrl, status, ai, skip }
 
 const grid = document.getElementById('batchGrid');
@@ -33,6 +48,20 @@ document.getElementById('defaultPriceBtn').addEventListener('click', () => {
   toast(`已設定 ${cards.filter(c => !c.skip).length} 件商品的售價`, 'success');
 });
 
+document.getElementById('defaultCatBtn').addEventListener('click', () => {
+  const labels = CATEGORIES.map(([v, l], i) => `${i + 1}. ${l}`).join('\n');
+  const v = prompt(`輸入分類編號，將所有商品設為該分類：\n${labels}`, '1');
+  if (!v) return;
+  const idx = Number(v) - 1;
+  if (!Number.isInteger(idx) || idx < 0 || idx >= CATEGORIES.length) {
+    toast('請輸入 1-' + CATEGORIES.length + ' 之間的編號', 'error');
+    return;
+  }
+  const code = CATEGORIES[idx][0];
+  cards.forEach(c => { if (!c.skip && c.categorySelect) c.categorySelect.value = code; });
+  toast(`已設定 ${cards.filter(c => !c.skip).length} 件商品的分類為 ${CATEGORIES[idx][1]}`, 'success');
+});
+
 saveAllBtn.addEventListener('click', saveAll);
 document.getElementById('retryFailedBtn').addEventListener('click', retryFailed);
 
@@ -57,6 +86,18 @@ async function addFiles(files) {
   cards = cards.concat(newCards);
   renderAll();
   updateCounts();
+
+  if (MANUAL_MODE) {
+    // Manual mode — no AI; mark each card ready immediately so save button enables
+    newCards.forEach(c => {
+      c.status = 'ok';
+      setCardStatus(c, 'ok', '✓ 已上傳');
+    });
+    updateCounts();
+    saveAllBtn.disabled = false;
+    toast(`✓ ${newCards.length} 張照片已上傳，請填寫商品資料`, 'success');
+    return;
+  }
 
   // Classify each in parallel — Gemini free tier is ~10-15 RPM, so use concurrency 2
   // with a small inter-request delay to stay under the limit.
@@ -159,14 +200,17 @@ function buildCardEl(card) {
   const div = document.createElement('div');
   div.className = 'batch-card' + (card.skip ? ' skip' : '');
   div.dataset.card = card.id;
+  const initStatus = MANUAL_MODE ? '✓ 已上傳' : '⏳ 等待辨識';
+  const initStatusClass = MANUAL_MODE ? 'ok' : 'loading';
+  const namePh = MANUAL_MODE ? '請輸入商品名稱' : '待 AI 填入...';
   div.innerHTML = `
     <div class="bc-img">
       <img src="${card.imageUrl}" alt="">
-      <span class="bc-status loading">⏳ 等待辨識</span>
+      <span class="bc-status ${initStatusClass}">${initStatus}</span>
       <button class="bc-skip" title="跳過這項">${card.skip ? '↻' : '✕'}</button>
     </div>
     <div class="bc-body">
-      <div><label>商品名稱 *</label><input class="i-name" placeholder="待 AI 填入..."></div>
+      <div><label>商品名稱 *</label><input class="i-name" placeholder="${namePh}"></div>
       <div><label>英文副標</label><input class="i-subtitle" placeholder="SUBTITLE"></div>
       <div class="bc-row">
         <div><label>分類 *</label>
@@ -269,12 +313,14 @@ async function saveAll() {
 
 // Initial state
 (async () => {
-  try {
-    const s = await api('/api/admin/ai-status');
-    if (!s.available) {
-      document.getElementById('aiStatusBar').textContent =
-        '⚠ 尚未設定 GEMINI_API_KEY — 仍可上傳照片，但需手動填寫所有欄位。';
-    }
-  } catch {}
+  if (!MANUAL_MODE) {
+    try {
+      const s = await api('/api/admin/ai-status');
+      if (!s.available) {
+        document.getElementById('aiStatusBar').textContent =
+          '⚠ 尚未設定 GEMINI_API_KEY — 仍可上傳照片，但需手動填寫所有欄位。';
+      }
+    } catch {}
+  }
   updateCounts();
 })();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 批次新增商品 · YEBUDA Admin</title>
+<title>批次新增商品 · YEBUDA Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/admin.css">
 <style>
@@ -34,7 +34,7 @@
 <main class="page">
   <header class="page-head">
     <div>
-      <h1>AI 批次新增商品</h1>
+      <h1 id="pageTitle">AI 批次新增商品</h1>
       <p class="crumbs"><a href="/admin/products.html">商品</a> · 批次建立</p>
     </div>
     <div class="head-actions">
@@ -50,6 +50,7 @@
       <input id="fileInput" type="file" accept="image/*" multiple hidden>
       <button id="pickBtn" class="btn-ghost">+ 選擇照片</button>
       <button id="retryFailedBtn" class="btn-ghost" title="重試 AI 辨識失敗的項目（會放慢速度避免 rate limit）">↻ 重試失敗的</button>
+      <button id="defaultCatBtn" class="btn-ghost" title="一次將所有商品設為相同分類" style="display:none">📁 統一設分類</button>
       <button id="defaultPriceBtn" class="btn-ghost" title="一次給所有未填價格的商品設定相同售價">💰 統一設售價</button>
       <button id="saveAllBtn" class="btn-primary" disabled>儲存全部商品</button>
     </div>
@@ -60,8 +61,8 @@
   <div id="batchGrid" class="batch-grid"></div>
 
   <div id="emptyState" class="batch-empty">
-    <h3 style="font-weight:500;">🤖 AI 批次新增</h3>
-    <p>選擇多張商品照片，AI 會逐張辨識分類、命名、生成介紹。<br>
+    <h3 id="emptyTitle" style="font-weight:500;">🤖 AI 批次新增</h3>
+    <p id="emptyDesc">選擇多張商品照片，AI 會逐張辨識分類、命名、生成介紹。<br>
     每張照片 = 一件商品。檢查無誤後一鍵全部儲存。</p>
   </div>
 </main>
