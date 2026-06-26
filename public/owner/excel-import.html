@@ -249,7 +249,7 @@
 
     // 尋找表頭欄位索引與底部的費用
     let headersIndex = -1;
-    let urlIdx = -1, variantIdx = -1, priceIdx = -1, vendorIdx = -1, noteIdx = -1;
+    let urlIdx = -1, variantIdx = -1, priceIdx = -1, noteIdx = -1;
     let autoFeeRate = null;
     let autoKoreaShipping = null;
 
@@ -261,7 +261,7 @@
       const rowStr = Array.from(row).map(c => String(c || '').trim());
       for (let c = 0; c < rowStr.length; c++) {
         const val = rowStr[c];
-        if (val.includes('代购费') || val.includes('代購費')) {
+        if (/代[购購][费費]/.test(val.replace(/\s+/g, ''))) {
           // 嘗試在右側儲存格找費率
           const nextVal = rowStr[c + 1] || '';
           const pctMatch = nextVal.match(/(\d+)\s*%/);
@@ -274,7 +274,7 @@
             }
           }
         }
-        if (val.includes('运费') || val.includes('運費')) {
+        if (/[运運][费費]/.test(val.replace(/\s+/g, ''))) {
           const nextVal = rowStr[c + 1] || '';
           const numMatch = nextVal.match(/(\d+)/);
           if (numMatch) autoKoreaShipping = parseInt(numMatch[1]);
@@ -292,7 +292,6 @@
         urlIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('档口') || s.includes('檔口') || s.includes('鏈接') || s.includes('連結') || s.includes('網址') || s.includes('网址') || s.includes('链接'); });
         variantIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('颜色') || s.includes('顏色') || s.includes('規格') || s.includes('规格') || s.includes('件数') || s.includes('件數'); });
         priceIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('单价') || s.includes('單價') || s.includes('韓幣') || s.includes('韩币'); });
-        vendorIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('客户') || s.includes('客戶') || s.includes('廠商') || s.includes('厂商'); });
         noteIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('备注') || s.includes('備註'); });
       }
     }
@@ -306,8 +305,30 @@
     if (urlIdx === -1) urlIdx = 1;
     if (variantIdx === -1) variantIdx = 4;
     if (priceIdx === -1) priceIdx = 6;
-    if (vendorIdx === -1) vendorIdx = 2;
+    // 廠商欄不亂猜：找不到「客户/廠商」表頭就維持 -1，改由「档口」欄推導，
+    // 避免把貨號/品番欄（例如 CS-SUSU522）誤當成廠商。
     if (noteIdx === -1) noteIdx = 5;
+
+    // 資料驅動校正「档口」欄：廠商與來源網址都來自档口欄，
+    // 所以資料列中「最常出現 http 網址的欄」就是档口欄。
+    // 這可修正表頭抓不到、或 urlIdx 指到貨號欄（如 CS-SUSU522）卻把網址留在別欄的情況。
+    {
+      const urlColCounts = {};
+      for (let r = headersIndex + 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row) continue;
+        for (let c = 0; c < row.length; c++) {
+          if (String(row[c] || '').trim().startsWith('http')) {
+            urlColCounts[c] = (urlColCounts[c] || 0) + 1;
+          }
+        }
+      }
+      let bestCol = -1, bestCount = 0;
+      for (const c in urlColCounts) {
+        if (urlColCounts[c] > bestCount) { bestCount = urlColCounts[c]; bestCol = Number(c); }
+      }
+      if (bestCol !== -1) urlIdx = bestCol;
+    }
 
     // 預填掃描到的運費與代購手續費率
     if (autoFeeRate !== null) {
@@ -320,7 +341,12 @@
     }
 
     // 開始解析商品行
+    // 以圖片為主：只要 Excel 有內置圖片，就只把「該列有對應圖片」的列視為商品；
+    // 若整份檔案完全沒抓到圖片（例如圖片以特殊方式儲存），則退回原本的文字判斷邏輯。
+    const hasEmbeddedImages = extractedImages instanceof Map && extractedImages.size > 0;
     const groupsMap = new Map();
+    // 以圖片為界分組時，記錄目前所屬的「有圖片商品」的列號；沒有自己圖片的變體列會歸到它。
+    let currentImageRow = null;
 
     for (let r = headersIndex + 1; r < rows.length; r++) {
       const row = rows[r];
@@ -329,24 +355,25 @@
       // 檢查是否為費用或總計行
       const rowStr = Array.from(row).map(c => String(c || '').trim());
       const rowText = rowStr.join(' ');
-      const isFeeOrSummary = rowText.includes('代购费') || rowText.includes('代購費') || 
-                             rowText.includes('运费') || rowText.includes('運費') || 
-                             rowText.includes('總計') || rowText.includes('合計') || 
-                             rowText.includes('合计') || rowText.includes('实付') || 
-                             rowText.includes('實付') || rowText.includes('總金額');
+      // 先移除所有空白，再以「允許繁簡混用」的規則比對費用/總計行，
+      // 避免「運费 / 运費」等混寫或字間空白導致漏判，進而把運費行誤當成商品。
+      const compactText = rowText.replace(/\s+/g, '');
+      const isFeeOrSummary = /代[购購][费費]/.test(compactText) ||   // 代購費
+                             /[运運][费費]/.test(compactText) ||     // 運費
+                             /[总總][计計]/.test(compactText) ||     // 總計
+                             /合[计計]/.test(compactText) ||         // 合計
+                             /[实實]付/.test(compactText) ||         // 實付
+                             /[预預]付/.test(compactText) ||         // 預付款
+                             /收款/.test(compactText) ||             // 收款
+                             /[货貨]款/.test(compactText) ||         // 貨款
+                             /[总總]金[额額]/.test(compactText);     // 總金額
       if (isFeeOrSummary) continue;
 
+      // 廠商與來源網址都只看「档口」欄（urlIdx 已被資料驅動校正到真正含網址的欄）：
+      // 不再做整列搜尋，避免網址取自 A 欄、廠商卻取自 B 欄（貨號欄）造成不一致。
       const originalUrlColVal = String(row[urlIdx] || '').trim();
-      let url = originalUrlColVal;
-      let hasHttp = url.startsWith('http');
-      if (!hasHttp) {
-        // 後備搜尋：在整行中找第一個以 http 開頭的儲存格
-        const found = row.find(c => String(c || '').trim().startsWith('http'));
-        if (found) {
-          url = String(found).trim();
-          hasHttp = true;
-        }
-      }
+      const hasHttp = originalUrlColVal.startsWith('http');
+      const url = hasHttp ? originalUrlColVal : '';
 
       const variantStr = String(row[variantIdx] || '').trim();
       const priceStr = String(row[priceIdx] || '').trim();
@@ -354,13 +381,12 @@
       // 如果沒有顏色變體且沒有單價，代表可能是空白行，跳過
       if (!variantStr && !priceStr) continue;
 
-      // 決定 vendor
-      let vendor = String(row[vendorIdx] || '').trim();
-      if (!vendor) {
-        // 如果原來的檔口欄位不是以 http 開頭，它就是商店名稱，我們可以用它當 vendor
-        if (originalUrlColVal && !originalUrlColVal.startsWith('http') && originalUrlColVal.length < 50) {
-          vendor = originalUrlColVal;
-        }
+      // 決定 vendor（廠商）：廠商就是「档口」欄的值。
+      // 档口欄若填的是網址（http 開頭）→ 沒有廠商名（vendor 留空）；
+      // 若填的不是網址 → 那段文字就是廠商/店名。不從其他欄位（如貨號）取廠商。
+      let vendor = '';
+      if (originalUrlColVal && !hasHttp) {
+        vendor = originalUrlColVal;
       }
 
       // 提取韓幣單價 (例如 34900*2 或 ₩34,900 提取 34900)
@@ -368,28 +394,24 @@
       const krwMatch = cleanedPrice.match(/(\d+)/);
       const krwUnit = krwMatch ? parseInt(krwMatch[1]) : 0;
 
-      // 解析變體與數量 (例如：白1件\n灰1件，或單獨一個 綠)
-      const lines = variantStr.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+      // 解析變體與數量：用全域規則抓出「顏色+數量」的所有配對，
+      // 支援空白分隔（粉2 蓝1 浅杏1）、換行分隔（白1件\n灰1件）與無分隔（白1件灰1件）。
       const variants = [];
-      for (const line of lines) {
-        // 匹配非數字字串作為顏色，其後第一個數字作為數量
-        const vMatch = line.match(/^([^\d]+?)\s*(\d+)/);
-        if (vMatch) {
-          variants.push({
-            color: vMatch[1].trim().replace(/件$/, ''), // 去除可能匹配到的「件」字
-            qty: parseInt(vMatch[2]),
-            size: 'FREE' // 預設尺寸
-          });
-        } else {
-          // 容錯：沒有數字，只有顏色，預設數量為 1
-          const colorStr = line.replace(/件$/, '').trim();
-          if (colorStr) {
-            variants.push({
-              color: colorStr,
-              qty: 1,
-              size: 'FREE'
-            });
-          }
+      const pairRe = /([^\d\s]+?)\s*(\d+)\s*件?/g;
+      let vMatch;
+      while ((vMatch = pairRe.exec(variantStr)) !== null) {
+        const color = vMatch[1].trim().replace(/件$/, '');
+        const qty = parseInt(vMatch[2]);
+        if (!color || !(qty > 0)) continue;
+        const existing = variants.find(x => x.color === color);
+        if (existing) existing.qty += qty;
+        else variants.push({ color, qty, size: 'FREE' });
+      }
+      // 容錯：完全沒有「顏色+數量」配對時，把純顏色文字（無數字）逐行視為數量 1
+      if (!variants.length) {
+        const lines = variantStr.split(/[\r\n]+/).map(l => l.trim().replace(/件$/, '')).filter(Boolean);
+        for (const colorStr of lines) {
+          if (!/\d/.test(colorStr)) variants.push({ color: colorStr, qty: 1, size: 'FREE' });
         }
       }
 
@@ -402,23 +424,27 @@
         });
       }
 
-      // 取得圖片：精確匹配當前列 r，或者前後 1 列（容錯）
-      let excelImageUrl = '';
-      if (extractedImages instanceof Map) {
-        if (extractedImages.has(r)) {
-          excelImageUrl = extractedImages.get(r);
-        } else if (extractedImages.has(r - 1)) {
-          excelImageUrl = extractedImages.get(r - 1);
-        } else if (extractedImages.has(r + 1)) {
-          excelImageUrl = extractedImages.get(r + 1);
-        }
-      }
+      // 一遇到有自己圖片的列，就切換到新的商品邊界（在變體檢查前處理，
+      // 這樣即使圖片與變體文字不在同一列，也能正確歸組）。
+      if (hasEmbeddedImages && extractedImages.has(r)) currentImageRow = r;
 
       if (!variants.length) continue;
 
-      // 分組 key：如果是 HTTP 網址則以網址分組，否則以每一行獨立為一個商品
-      const groupKey = hasHttp ? url : `row-${r}`;
+      // 決定分組方式：
+      // 有內置圖片時 → 以「圖片列」為商品邊界：每個有自己圖片的列開啟一個新商品，
+      //   後續沒有自己圖片的變體列歸到上一個有圖片的商品（支援同商品跨多列）。
+      //   這樣即使多個商品共用同一個網址，也不會被錯誤合併成一筆。
+      // 沒有任何內置圖片時 → 退回原本：有網址用網址分組，否則每列自成一筆。
+      let groupKey, excelImageUrl;
       const finalUrl = hasHttp ? url : '';
+      if (hasEmbeddedImages) {
+        if (currentImageRow === null) continue; // 第一張圖片出現前的雜訊列略過
+        groupKey = 'img-' + currentImageRow;
+        excelImageUrl = extractedImages.get(currentImageRow) || ''; // 圖片取自邊界列
+      } else {
+        groupKey = hasHttp ? url : `row-${r}`;
+        excelImageUrl = '';
+      }
 
       if (!groupsMap.has(groupKey)) {
         // 從網址提取商品編號，或使用隨機臨時 ID
@@ -452,10 +478,11 @@
         else group.variants.push(v);
       }
 
-      // 如果原本的組沒有圖片，而這行有圖片，就補上圖片
-      if (!group.excelImageUrl && excelImageUrl) {
-        group.excelImageUrl = excelImageUrl;
-      }
+      // 同商品的後續變體列，補齊開組時缺漏的圖片/網址/單價/廠商
+      if (!group.excelImageUrl && excelImageUrl) group.excelImageUrl = excelImageUrl;
+      if (!group.sourceUrl && finalUrl) group.sourceUrl = finalUrl;
+      if (!group.krwUnit && krwUnit > 0) group.krwUnit = krwUnit;
+      if (!group.vendor && vendor) group.vendor = vendor;
     }
 
     parsedGroups = Array.from(groupsMap.values());
