@@ -16,6 +16,7 @@
   .delta-up { color: #3b7a57; }
   .delta-down { color: #c84436; }
   .low-stock { background: #fff5f5; }
+  .grp-row td { background: #faf7f0; border-top: 2px solid #ece4d4; padding: 10px 12px; }
   .search-row { display: flex; gap: 10px; margin-bottom: 16px; }
   .search-row input { flex: 1; }
 
@@ -71,7 +72,20 @@ let products = [];
 let history = [];
 let filterCat = 'all';
 let searchTerm = '';
-const changed = new Map(); // productId → { newStock, reason }
+const changed = new Map(); // key(pid|color|size) → { productId, color, size, newStock, reason }
+
+const vkey = (pid, color, size) => `${pid}|${color}|${size}`;
+const esc = s => String(s ?? '').replace(/"/g, '&quot;');
+
+function variantsOf(p) {
+  if (Array.isArray(p.variants) && p.variants.length) return p.variants;
+  // 後備（理論上遷移後都有 variants）
+  const colors = (p.colors && p.colors.length) ? p.colors : (p.color ? [p.color] : ['']);
+  const sizes  = (p.sizes && p.sizes.length) ? p.sizes : ['FREE'];
+  const out = [];
+  for (const c of colors) for (const s of sizes) out.push({ color: c, size: s, qty: 0 });
+  return out;
+}
 
 async function loadAll() {
   // Use the owner-scoped products endpoint (returns hidden products too) instead
@@ -88,56 +102,63 @@ async function loadAll() {
 function render() {
   const tb = document.getElementById('pdtBody');
   let list = products.slice();
-  if (filterCat === 'low')  list = list.filter(p => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5);
-  if (filterCat === 'zero') list = list.filter(p => (p.stock ?? 0) === 0);
   if (searchTerm) {
     const q = searchTerm.toLowerCase();
     list = list.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
   }
-  if (!list.length) {
-    tb.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:30px;">沒有符合條件的商品</td></tr>`;
-    return;
-  }
-  tb.innerHTML = list.map(p => {
-    const cur = Number(p.stock) || 0;
-    const isLow = cur <= 5;
-    const pending = changed.get(p.id);
-    const newVal = pending ? pending.newStock : cur;
-    const delta = newVal - cur;
-    return `<tr class="pdt-row ${isLow ? 'low-stock' : ''}" data-id="${p.id}">
-      <td><img class="pdt-img" src="${p.image}" alt=""></td>
-      <td>
-        <div style="font-weight:500;">${p.name}</div>
-        <div class="muted" style="font-size:11px;">${p.id}</div>
-      </td>
-      <td class="c" style="font-weight:600;color:${isLow ? '#c84436' : '#333'};">${cur}</td>
-      <td class="c"><input type="number" class="stock-new ${pending ? 'changed' : ''}" min="0" value="${newVal}" data-id="${p.id}"></td>
-      <td class="delta-cell c">${delta === 0 ? '<span class="muted">—</span>' : (delta > 0 ? `<span class="delta-up">+${delta}</span>` : `<span class="delta-down">${delta}</span>`)}</td>
-      <td><input type="text" class="inp stock-reason" data-id="${p.id}" placeholder="例：月底盤點、損壞..." value="${pending?.reason || ''}" style="width:100%;font-size:12px;padding:6px 8px;"></td>
-    </tr>`;
+  const rowsHtml = list.map(p => {
+    let vs = variantsOf(p);
+    if (filterCat === 'low')  vs = vs.filter(v => (v.qty ?? 0) > 0 && (v.qty ?? 0) <= 5);
+    if (filterCat === 'zero') vs = vs.filter(v => (v.qty ?? 0) === 0);
+    if (!vs.length) return '';
+    const head = `<tr class="grp-row"><td><img class="pdt-img" src="${p.image}" alt=""></td>
+      <td colspan="5"><strong>${p.name}</strong> <span class="muted" style="font-size:11px;">${p.id}</span> · 總庫存 <strong>${p.stock || 0}</strong></td></tr>`;
+    const rows = vs.map(v => {
+      const key = vkey(p.id, v.color, v.size);
+      const cur = Number(v.qty) || 0;
+      const isLow = cur <= 5;
+      const pending = changed.get(key);
+      const newVal = pending ? pending.newStock : cur;
+      const delta = newVal - cur;
+      return `<tr class="pdt-row ${isLow ? 'low-stock' : ''}">
+        <td></td>
+        <td style="padding-left:18px;">
+          ${v.color || '—'} <span class="muted">/</span> ${v.size}
+          <span style="font-size:11px;color:#8c8274;background:#f4f0e8;padding:2px 6px;border-radius:4px;margin-left:8px;font-family:monospace;">
+            ${p.id}-${v.color || 'FREE'}-${v.size}
+          </span>
+        </td>
+        <td class="c" style="font-weight:600;color:${isLow ? '#c84436' : '#333'};">${cur}</td>
+        <td class="c"><input type="number" class="stock-new ${pending ? 'changed' : ''}" min="0" value="${newVal}"
+            data-key="${esc(key)}" data-pid="${esc(p.id)}" data-color="${esc(v.color)}" data-size="${esc(v.size)}"></td>
+        <td class="delta-cell c">${delta === 0 ? '<span class="muted">—</span>' : (delta > 0 ? `<span class="delta-up">+${delta}</span>` : `<span class="delta-down">${delta}</span>`)}</td>
+        <td><input type="text" class="inp stock-reason" data-key="${esc(key)}" placeholder="例：月底盤點、損壞..." value="${esc(pending?.reason || '')}" style="width:100%;font-size:12px;padding:6px 8px;"></td>
+      </tr>`;
+    }).join('');
+    return head + rows;
   }).join('');
+
+  tb.innerHTML = rowsHtml ||
+    `<tr><td colspan="6" class="muted" style="text-align:center;padding:30px;">沒有符合條件的商品</td></tr>`;
 
   tb.querySelectorAll('.stock-new').forEach(inp => {
     inp.addEventListener('input', () => {
-      const id = inp.dataset.id;
-      const p = products.find(pp => pp.id === id);
-      const v = Math.max(0, Number(inp.value) || 0);
-      if (v === (Number(p.stock) || 0)) changed.delete(id);
-      else {
-        const existing = changed.get(id) || {};
-        changed.set(id, { ...existing, newStock: v });
-      }
-      render(); // re-render so delta + saved button state updates
-      // Restore focus to the input after re-render
-      setTimeout(() => document.querySelector(`.stock-new[data-id="${id}"]`)?.focus(), 0);
+      const { key, pid, color, size } = inp.dataset;
+      const p = products.find(pp => pp.id === pid);
+      const v0 = variantsOf(p).find(x => x.color === color && x.size === size);
+      const cur = Number(v0?.qty) || 0;
+      const val = Math.max(0, Number(inp.value) || 0);
+      if (val === cur) changed.delete(key);
+      else changed.set(key, { ...(changed.get(key) || {}), productId: pid, color, size, newStock: val });
+      render();
+      setTimeout(() => tb.querySelector(`.stock-new[data-key="${CSS.escape(key)}"]`)?.focus(), 0);
     });
   });
   tb.querySelectorAll('.stock-reason').forEach(inp => {
     inp.addEventListener('input', () => {
-      const id = inp.dataset.id;
-      const existing = changed.get(id);
-      if (!existing) return; // only track reason if there's a stock change
-      changed.set(id, { ...existing, reason: inp.value });
+      const existing = changed.get(inp.dataset.key);
+      if (!existing) return; // 只在有數量變更時記原因
+      existing.reason = inp.value;
     });
   });
   document.getElementById('saveAllBtn').disabled = changed.size === 0;
@@ -155,9 +176,10 @@ function renderHistory() {
   tb.innerHTML = history.slice(0, 30).map(h => {
     const d = h.delta;
     const dStr = d === 0 ? '<span class="muted">—</span>' : (d > 0 ? `<span class="delta-up">+${d}</span>` : `<span class="delta-down">${d}</span>`);
+    const variant = (h.color || h.size) ? ` <span class="muted" style="font-size:11px;">${[h.color, h.size].filter(Boolean).join('/')}</span> <span style="font-size:10px;color:#8c8274;font-family:monospace;background:#f4f0e8;padding:1px 4px;border-radius:3px;margin-left:4px;">${h.productId}-${h.color || 'FREE'}-${h.size}</span>` : '';
     return `<tr class="history-row">
       <td>${new Date(h.createdAt).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })}</td>
-      <td>${h.productName}</td>
+      <td>${h.productName}${variant}</td>
       <td class="c">${h.before}</td>
       <td class="c"><strong>${h.after}</strong></td>
       <td class="c">${dStr}</td>
@@ -171,18 +193,18 @@ document.getElementById('filter').addEventListener('change', e => { filterCat = 
 
 document.getElementById('saveAllBtn').addEventListener('click', async () => {
   if (!changed.size) return;
-  const entries = [...changed.entries()];
+  const entries = [...changed.values()];
   let ok = 0;
-  for (const [id, { newStock, reason }] of entries) {
+  for (const { productId, color, size, newStock, reason } of entries) {
     try {
       await api('/api/owner/stock-adjustments', {
         method: 'POST',
-        body: { productId: id, newStock, reason: reason || '' },
+        body: { productId, color, size, newStock, reason: reason || '' },
       });
       ok++;
-    } catch (e) { console.error('save failed for', id, e); }
+    } catch (e) { console.error('save failed for', productId, color, size, e); }
   }
-  toast(`✓ 已更新 ${ok} 件商品庫存`, 'success');
+  toast(`✓ 已更新 ${ok} 個變體庫存`, 'success');
   changed.clear();
   await loadAll();
 });

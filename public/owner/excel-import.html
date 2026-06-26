@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel 進貨匯入 · 老闆專區</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/owner/owner.css">
+<style>
+  .import-box { background: #fff; border: 2px dashed #d8d0c0; border-radius: 6px; padding: 40px 20px; text-align: center; margin-bottom: 22px; cursor: pointer; transition: all 0.2s; }
+  .import-box:hover { border-color: #c9a96e; background: #faf8f5; }
+  .import-box.dragover { border-color: #3b7a57; background: #f2f7f4; }
+  .import-box p { margin-top: 10px; font-size: 14px; color: #666; }
+  
+  .cost-form { background: #fff; border: 1px solid #e6ddd0; border-radius: 6px; padding: 22px; margin-bottom: 22px; display: none; }
+  .cost-form .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .cost-form label { display: block; font-size: 11px; color: #888; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .cost-form .inp { width: 100%; }
+
+  .preview-card { background: #fff; border: 1px solid #e6ddd0; border-radius: 6px; padding: 22px; margin-bottom: 22px; display: none; }
+  .preview-card h2 { font-size: 14px; letter-spacing: 2px; font-weight: 600; color: #555; margin-bottom: 14px; }
+  
+  .group-row { border-bottom: 1px solid #f0ebe0; padding: 18px 0; }
+  .group-row:last-child { border-bottom: none; }
+  .group-grid { display: grid; grid-template-columns: 1.5fr 2fr 1.5fr 40px; gap: 16px; align-items: start; }
+  
+  .prod-url { font-size: 12px; word-break: break-all; line-height: 1.5; color: #6a6257; }
+  .prod-url a { text-decoration: underline; color: #c9a96e; }
+  
+  .mapping-section { background: #faf9f6; border: 1px solid #eedec7; padding: 12px; border-radius: 4px; }
+  .mapping-section label { font-size: 11px; font-weight: 600; display: block; margin-bottom: 6px; color: #7a6e5d; }
+  
+  .status-badge { display: inline-block; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-weight: 500; letter-spacing: 1px; margin-bottom: 8px; }
+  .status-badge.new { background: #fdf5e6; color: #b8860b; border: 1px solid #f5deb3; }
+  .status-badge.exists { background: #eaf2eb; color: #2e6930; border: 1px solid #c2dec3; }
+  
+  .variant-badge { display: inline-block; background: #f4f0e8; border: 1px solid #e2dad0; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin: 4px; color: #555; }
+  
+  .actions-cell { text-align: right; }
+  .rm-group { color: #c84436; cursor: pointer; font-size: 18px; line-height: 1; }
+  
+  .new-prod-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .new-prod-inputs input, .new-prod-inputs select { padding: 6px 8px; font-size: 12px; border: 1px solid #d8d0c0; border-radius: 3px; outline: none; }
+  
+  .link-selector { width: 100%; padding: 6px 8px; font-size: 12px; border: 1px solid #eedec7; background: #fff; outline: none; border-radius: 3px; margin-top: 8px; }
+  
+  @media (max-width: 768px) {
+    .group-grid { grid-template-columns: 1fr; gap: 12px; }
+    .actions-cell { text-align: left; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>Excel 進貨匯入</h1>
+      <p class="crumbs">Inventory · 上傳廠商代買單，一鍵自動建立商品與登記進貨</p>
+    </div>
+    <div>
+      <a href="/owner/inventory.html" class="btn btn-ghost btn-xs">返回進貨記錄</a>
+    </div>
+  </header>
+
+  <div class="import-box" id="dropzone">
+    <div style="font-size: 32px; color: #8c8274;">📊</div>
+    <p>點擊選擇 或 拖曳 Excel 檔案至此處上傳</p>
+    <small class="muted">支援 .xlsx, .xls 格式</small>
+  </div>
+  <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;">
+
+  <!-- 集運費用設定 -->
+  <div class="cost-form" id="costFormCard">
+    <h2 style="font-size:14px;letter-spacing:2px;font-weight:600;color:#555;margin-bottom:14px;">🛃 1. 確認集運費用資訊</h2>
+    <div class="row">
+      <div><label>進貨日期</label><input type="date" id="poDate" class="inp"></div>
+      <div><label>匯率（1 台幣 = ? 韓元）</label><input type="number" id="poRate" class="inp" step="0.1" min="0" placeholder="例：44.2" value="44.2"></div>
+      <div><label>代購手續費率 (%)</label><input type="number" id="poFee" class="inp" step="0.1" min="0" value="3"></div>
+    </div>
+    <div class="row">
+      <div><label>韓國運費單價 (₩/kg 韓幣)</label><input type="number" id="poShipping" class="inp" placeholder="0" min="0"></div>
+      <div><label>總重量 (kg)</label><input type="number" id="poWeight" class="inp" step="0.1" min="0" placeholder="例：10" value="0"></div>
+      <div><label>報關費率 (NT$/kg)</label><input type="number" id="poCustomsRate" class="inp" step="1" min="0" value="36"></div>
+    </div>
+    <div style="margin-top:10px;">
+      <label>進貨備註</label>
+      <input type="text" id="poNote" class="inp" style="width:100%;" placeholder="例：匯入代買單、集貨入庫">
+    </div>
+  </div>
+
+  <!-- 預覽對應表 -->
+  <div class="preview-card" id="previewCard">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2>📦 2. 商品對應與變體確認</h2>
+      <span class="muted" id="totalItemsSummary" style="font-size: 12px;"></span>
+    </div>
+    <div id="previewContainer"></div>
+    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px dashed #d8d0c0; text-align: right;">
+      <button type="button" class="btn btn-primary" id="submitImportBtn">確認匯入並登記進貨</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { api, ensureOwner, renderTopBar, toast } from '/owner/js/owner-app.js';
+  await ensureOwner();
+  renderTopBar('inventory');
+
+  document.getElementById('poDate').valueAsDate = new Date();
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const costFormCard = document.getElementById('costFormCard');
+  const previewCard = document.getElementById('previewCard');
+  const previewContainer = document.getElementById('previewContainer');
+
+  let products = [];
+  let parsedGroups = []; // Excel 解析後的商品分組
+
+  // 載入系統既有商品以進行對應
+  async function loadProducts() {
+    try {
+      products = await api('/api/owner/products');
+      products.sort((a, b) => a.id.localeCompare(b.id));
+    } catch (e) {
+      toast('載入商品列表失敗', 'error');
+    }
+  }
+  loadProducts();
+
+  // 上傳區事件
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', handleFileSelect);
+  
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      handleFileSelect();
+    }
+  });
+
+  function handleFileSelect() {
+    const file = fileInput.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // 嘗試使用 JSZip 讀取內置圖片與 drawings 的關係，精確配對到 row 索引
+        let rowImageMap = new Map();
+        try {
+          const zip = new JSZip();
+          const loadedZip = await zip.loadAsync(file);
+
+          let relsXmlText = await loadedZip.file("xl/drawings/_rels/drawing1.xml.rels")?.async("text");
+          let drawingXmlText = await loadedZip.file("xl/drawings/drawing1.xml")?.async("text");
+          
+          if (!relsXmlText || !drawingXmlText) {
+            // 後備：尋找任意 drawings 關係與配置檔案
+            for (let path in loadedZip.files) {
+              if (path.startsWith("xl/drawings/_rels/") && path.endsWith(".xml.rels")) {
+                relsXmlText = await loadedZip.file(path).async("text");
+              }
+              if (path.startsWith("xl/drawings/") && !path.includes("_rels/") && path.endsWith(".xml")) {
+                drawingXmlText = await loadedZip.file(path).async("text");
+              }
+            }
+          }
+
+          if (relsXmlText && drawingXmlText) {
+            const parser = new DOMParser();
+            const relsDoc = parser.parseFromString(relsXmlText, "text/xml");
+            const drawingDoc = parser.parseFromString(drawingXmlText, "text/xml");
+
+            // 建立 rId -> target 檔名的映射
+            const rIdToTarget = new Map();
+            const relationships = relsDoc.getElementsByTagName("Relationship");
+            for (let rel of relationships) {
+              const id = rel.getAttribute("Id");
+              const target = rel.getAttribute("Target");
+              if (id && target) {
+                const filename = target.split('/').pop();
+                rIdToTarget.set(id, filename);
+              }
+            }
+
+            // 找出 twoCellAnchor 與 oneCellAnchor 的 row 關係
+            const anchors = [
+              ...drawingDoc.getElementsByTagNameNS("*", "twoCellAnchor"),
+              ...drawingDoc.getElementsByTagNameNS("*", "oneCellAnchor")
+            ];
+
+            for (let anchor of anchors) {
+              const fromEl = anchor.getElementsByTagNameNS("*", "from")[0] || anchor.getElementsByTagName("from")[0];
+              if (!fromEl) continue;
+              const rowEl = fromEl.getElementsByTagNameNS("*", "row")[0] || fromEl.getElementsByTagName("row")[0];
+              if (!rowEl) continue;
+              const excelRowIndex = parseInt(rowEl.textContent);
+
+              const blipEl = anchor.getElementsByTagNameNS("*", "blip")[0] || anchor.getElementsByTagName("blip")[0];
+              if (!blipEl) continue;
+              const embedId = blipEl.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed") 
+                            || blipEl.getAttribute("r:embed")
+                            || blipEl.getAttribute("embed");
+              
+              if (embedId && rIdToTarget.has(embedId)) {
+                const filename = rIdToTarget.get(embedId);
+                const fileEntry = loadedZip.file(`xl/media/${filename}`);
+                if (fileEntry) {
+                  const base64 = await fileEntry.async("base64");
+                  const ext = filename.split('.').pop().toLowerCase();
+                  const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+                  rowImageMap.set(excelRowIndex, `data:${mime};base64,${base64}`);
+                }
+              }
+            }
+          }
+        } catch (zipErr) {
+          console.warn('解析 Excel 內置圖片結構失敗:', zipErr);
+        }
+
+        parseExcel(rows, rowImageMap);
+      } catch (err) {
+        console.error(err);
+        toast('解析 Excel 錯誤: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 解析 Excel 欄位
+  function parseExcel(rows, extractedImages = []) {
+    if (!rows.length) return toast('Excel 檔案內容為空', 'error');
+
+    // 尋找表頭欄位索引與底部的費用
+    let headersIndex = -1;
+    let urlIdx = -1, variantIdx = -1, priceIdx = -1, vendorIdx = -1, noteIdx = -1;
+    let autoFeeRate = null;
+    let autoKoreaShipping = null;
+
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row) continue;
+      
+      // 掃描底部代購費與運費
+      const rowStr = Array.from(row).map(c => String(c || '').trim());
+      for (let c = 0; c < rowStr.length; c++) {
+        const val = rowStr[c];
+        if (val.includes('代购费') || val.includes('代購費')) {
+          // 嘗試在右側儲存格找費率
+          const nextVal = rowStr[c + 1] || '';
+          const pctMatch = nextVal.match(/(\d+)\s*%/);
+          if (pctMatch) autoFeeRate = parseFloat(pctMatch[1]);
+          else {
+            const numMatch = nextVal.match(/([\d\.]+)/);
+            if (numMatch) {
+              const num = parseFloat(numMatch[1]);
+              autoFeeRate = num < 1 ? num * 100 : num; // 小數轉為百分比
+            }
+          }
+        }
+        if (val.includes('运费') || val.includes('運費')) {
+          const nextVal = rowStr[c + 1] || '';
+          const numMatch = nextVal.match(/(\d+)/);
+          if (numMatch) autoKoreaShipping = parseInt(numMatch[1]);
+        }
+      }
+
+      // 判斷表頭位置 (支援繁簡體、子字串模糊匹配)
+      const hasHeaderKeywords = row.some(cell => {
+        const str = String(cell || '').trim();
+        return str.includes('颜色') || str.includes('顏色') || str.includes('单价') || str.includes('單價') || str.includes('档口') || str.includes('檔口');
+      });
+
+      if (headersIndex === -1 && hasHeaderKeywords) {
+        headersIndex = r;
+        urlIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('档口') || s.includes('檔口') || s.includes('鏈接') || s.includes('連結') || s.includes('網址') || s.includes('网址') || s.includes('链接'); });
+        variantIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('颜色') || s.includes('顏色') || s.includes('規格') || s.includes('规格') || s.includes('件数') || s.includes('件數'); });
+        priceIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('单价') || s.includes('單價') || s.includes('韓幣') || s.includes('韩币'); });
+        vendorIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('客户') || s.includes('客戶') || s.includes('廠商') || s.includes('厂商'); });
+        noteIdx = row.findIndex(c => { const s = String(c || ''); return s.includes('备注') || s.includes('備註'); });
+      }
+    }
+
+    if (headersIndex === -1) {
+      // 後備機制：假設第一列為表頭
+      headersIndex = 0;
+    }
+    
+    // 如果找不到特定欄位，嘗試以網址特徵或預設值作後備
+    if (urlIdx === -1) urlIdx = 1;
+    if (variantIdx === -1) variantIdx = 4;
+    if (priceIdx === -1) priceIdx = 6;
+    if (vendorIdx === -1) vendorIdx = 2;
+    if (noteIdx === -1) noteIdx = 5;
+
+    // 預填掃描到的運費與代購手續費率
+    if (autoFeeRate !== null) {
+      document.getElementById('poFee').value = autoFeeRate;
+      toast(`已自動抓取代購手續費率：${autoFeeRate}%`, 'success');
+    }
+    if (autoKoreaShipping !== null) {
+      document.getElementById('poShipping').value = autoKoreaShipping;
+      toast(`已自動抓取韓國運費：₩${autoKoreaShipping.toLocaleString()}`, 'success');
+    }
+
+    // 開始解析商品行
+    const groupsMap = new Map();
+
+    for (let r = headersIndex + 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || !row.length) continue;
+
+      // 檢查是否為費用或總計行
+      const rowStr = Array.from(row).map(c => String(c || '').trim());
+      const rowText = rowStr.join(' ');
+      const isFeeOrSummary = rowText.includes('代购费') || rowText.includes('代購費') || 
+                             rowText.includes('运费') || rowText.includes('運費') || 
+                             rowText.includes('總計') || rowText.includes('合計') || 
+                             rowText.includes('合计') || rowText.includes('实付') || 
+                             rowText.includes('實付') || rowText.includes('總金額');
+      if (isFeeOrSummary) continue;
+
+      const originalUrlColVal = String(row[urlIdx] || '').trim();
+      let url = originalUrlColVal;
+      let hasHttp = url.startsWith('http');
+      if (!hasHttp) {
+        // 後備搜尋：在整行中找第一個以 http 開頭的儲存格
+        const found = row.find(c => String(c || '').trim().startsWith('http'));
+        if (found) {
+          url = String(found).trim();
+          hasHttp = true;
+        }
+      }
+
+      const variantStr = String(row[variantIdx] || '').trim();
+      const priceStr = String(row[priceIdx] || '').trim();
+      
+      // 如果沒有顏色變體且沒有單價，代表可能是空白行，跳過
+      if (!variantStr && !priceStr) continue;
+
+      // 決定 vendor
+      let vendor = String(row[vendorIdx] || '').trim();
+      if (!vendor) {
+        // 如果原來的檔口欄位不是以 http 開頭，它就是商店名稱，我們可以用它當 vendor
+        if (originalUrlColVal && !originalUrlColVal.startsWith('http') && originalUrlColVal.length < 50) {
+          vendor = originalUrlColVal;
+        }
+      }
+
+      // 提取韓幣單價 (例如 34900*2 或 ₩34,900 提取 34900)
+      const cleanedPrice = priceStr.replace(/,/g, '');
+      const krwMatch = cleanedPrice.match(/(\d+)/);
+      const krwUnit = krwMatch ? parseInt(krwMatch[1]) : 0;
+
+      // 解析變體與數量 (例如：白1件\n灰1件，或單獨一個 綠)
+      const lines = variantStr.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+      const variants = [];
+      for (const line of lines) {
+        // 匹配非數字字串作為顏色，其後第一個數字作為數量
+        const vMatch = line.match(/^([^\d]+?)\s*(\d+)/);
+        if (vMatch) {
+          variants.push({
+            color: vMatch[1].trim().replace(/件$/, ''), // 去除可能匹配到的「件」字
+            qty: parseInt(vMatch[2]),
+            size: 'FREE' // 預設尺寸
+          });
+        } else {
+          // 容錯：沒有數字，只有顏色，預設數量為 1
+          const colorStr = line.replace(/件$/, '').trim();
+          if (colorStr) {
+            variants.push({
+              color: colorStr,
+              qty: 1,
+              size: 'FREE'
+            });
+          }
+        }
+      }
+
+      // 如果解析不出變體，但有單價，給予一個預設變體「單色」數量為 1
+      if (!variants.length && krwUnit > 0) {
+        variants.push({
+          color: '單色',
+          qty: 1,
+          size: 'FREE'
+        });
+      }
+
+      // 取得圖片：精確匹配當前列 r，或者前後 1 列（容錯）
+      let excelImageUrl = '';
+      if (extractedImages instanceof Map) {
+        if (extractedImages.has(r)) {
+          excelImageUrl = extractedImages.get(r);
+        } else if (extractedImages.has(r - 1)) {
+          excelImageUrl = extractedImages.get(r - 1);
+        } else if (extractedImages.has(r + 1)) {
+          excelImageUrl = extractedImages.get(r + 1);
+        }
+      }
+
+      if (!variants.length) continue;
+
+      // 分組 key：如果是 HTTP 網址則以網址分組，否則以每一行獨立為一個商品
+      const groupKey = hasHttp ? url : `row-${r}`;
+      const finalUrl = hasHttp ? url : '';
+
+      if (!groupsMap.has(groupKey)) {
+        // 從網址提取商品編號，或使用隨機臨時 ID
+        let tempId = 'y' + Math.random().toString(36).substring(2, 8);
+        let tempName = '新商品';
+        if (finalUrl) {
+          const matchNo = finalUrl.match(/product_no=(\d+)/);
+          if (matchNo) {
+            tempName = 'Slowand ' + matchNo[1];
+          }
+        } else if (vendor) {
+          tempName = `${vendor} 商品`;
+        }
+
+        groupsMap.set(groupKey, {
+          sourceUrl: finalUrl,
+          krwUnit,
+          vendor,
+          variants: [],
+          tempName,
+          tempId,
+          excelImageUrl
+        });
+      }
+
+      const group = groupsMap.get(groupKey);
+      // 合併變體
+      for (const v of variants) {
+        const existing = group.variants.find(x => x.color === v.color);
+        if (existing) existing.qty += v.qty;
+        else group.variants.push(v);
+      }
+
+      // 如果原本的組沒有圖片，而這行有圖片，就補上圖片
+      if (!group.excelImageUrl && excelImageUrl) {
+        group.excelImageUrl = excelImageUrl;
+      }
+    }
+
+    parsedGroups = Array.from(groupsMap.values());
+    if (!parsedGroups.length) return toast('未能在 Excel 中解析到有效的商品與變體列', 'error');
+
+    // 進行與系統已有商品的對應
+    for (const group of parsedGroups) {
+      if (group.sourceUrl) {
+        const match = products.find(p => p.sourceUrl === group.sourceUrl);
+        if (match) {
+          group.matchedProductId = match.id;
+          group.matchedName = match.name;
+          group.isNew = false;
+        } else {
+          group.matchedProductId = '';
+          group.isNew = true;
+        }
+      } else {
+        group.matchedProductId = '';
+        group.isNew = true;
+      }
+    }
+
+    // 顯示區塊
+    costFormCard.style.display = 'block';
+    previewCard.style.display = 'block';
+    renderPreview();
+  }
+
+  // 渲染預覽表格
+  function renderPreview() {
+    previewContainer.innerHTML = '';
+    let totalItems = 0;
+    
+    let imgOptions = `<option value="/images/placeholder.jpg">— 選擇商品照片 —</option>`;
+    for (let i = 1; i <= 26; i++) {
+      const filename = `LINE_ALBUM_2026424_260424_${i}.jpg`;
+      imgOptions += `<option value="${filename}">LINE 相簿照片 ${i} (${filename})</option>`;
+    }
+
+    parsedGroups.forEach((group, idx) => {
+      totalItems += group.variants.length;
+      
+      const div = document.createElement('div');
+      div.className = 'group-row';
+      
+      // 構建變體文字
+      const varHtml = group.variants.map((v, vIdx) => 
+        `<span class="variant-badge" style="display:inline-block; vertical-align:middle; text-align:left; line-height:1.4;">
+          ${v.color} × ${v.qty} 件 <small class="muted">(₩${group.krwUnit.toLocaleString()})</small>
+          <span class="v-cost-twd" id="cost_${idx}_${vIdx}" style="display:block; font-size:11px; margin-top:2px;">—</span>
+         </span>`
+      ).join('');
+
+      // 商品對應區塊
+      let mappingHtml = '';
+      if (!group.isNew) {
+        // 已存在商品
+        mappingHtml = `
+          <div class="status-badge exists">✓ 已自動綁定系統商品</div>
+          <div style="font-weight:600;font-size:13px;color:#2e6930;">
+            ${group.matchedProductId} · ${group.matchedName}
+          </div>
+          <input type="hidden" class="grp-action" value="existing">
+          <input type="hidden" class="grp-pid" value="${group.matchedProductId}">
+        `;
+      } else {
+        // 新商品：自訂 ID 或是 關聯到既有商品
+        const randId = 'y' + Date.now().toString().slice(-6) + Math.floor(Math.random()*10);
+        const optHtml = products.map(p => 
+          `<option value="${p.id}">${p.id} · ${p.name}</option>`
+        ).join('');
+
+        let localImgOptions = imgOptions;
+        if (group.excelImageUrl) {
+          localImgOptions = `<option value="excel_image">— Excel 內置照片 (預設) —</option>` + imgOptions;
+        }
+
+        mappingHtml = `
+          <div class="status-badge new">＋ 全新商品 (未關聯)</div>
+          <select class="link-selector" onchange="toggleGroupAction(this, ${idx})">
+            <option value="new">手動建立新商品</option>
+            <option value="">— 關聯至已存在商品 —</option>
+            ${optHtml}
+          </select>
+          <div class="new-prod-inputs" id="newInputs_${idx}">
+            <input type="text" placeholder="自訂商品 ID (例: y099)" class="grp-pid" value="${randId}">
+            <input type="text" placeholder="中文品名" class="grp-name" value="${group.tempName}">
+            <select class="grp-cat">
+              <option value="blouse">上衣</option>
+              <option value="pants">下身</option>
+              <option value="dress">洋裝</option>
+              <option value="outer">外套</option>
+              <option value="suit">套裝</option>
+              <option value="all">其他</option>
+            </select>
+            <input type="number" placeholder="售價 NT$" class="grp-price" value="0" min="0">
+            <select class="grp-img" onchange="previewImg(this, ${idx})" style="grid-column: span 2;">
+              ${localImgOptions}
+            </select>
+            <div id="imgPrev_${idx}" style="margin-top: 6px; ${group.excelImageUrl ? '' : 'display: none;'} grid-column: span 2; text-align: left;">
+              <img src="${group.excelImageUrl || ''}" style="width: 80px; height: 80px; object-fit: cover; object-position: left center; border: 1px solid #d8d0c0; border-radius: 3px;">
+            </div>
+          </div>
+          <input type="hidden" class="grp-action" id="action_${idx}" value="new">
+        `;
+      }
+
+      // 檔口網址顯示
+      const displayUrl = (group.sourceUrl || '').length > 50 ? group.sourceUrl.slice(0, 47) + '...' : (group.sourceUrl || '');
+
+      div.innerHTML = `
+        <div class="group-grid" data-idx="${idx}">
+          <div class="prod-url" style="display:flex; gap:12px; align-items:start;">
+            <div class="grp-thumbnail" id="thumb_${idx}" style="width:70px; height:90px; background:#f4f0e8; border-radius:3px; overflow:hidden; border:1px solid #d8d0c0; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:#888;">
+              ${group.excelImageUrl 
+                ? `<img src="${group.excelImageUrl}" style="width:100%; height:100%; object-fit:cover; object-position:left center;">`
+                : (group.isNew ? '抓圖中…' : `<img src="${products.find(p => p.id === group.matchedProductId)?.image || '/images/placeholder.jpg'}" style="width:100%; height:100%; object-fit:cover; object-position:left center;">`)
+              }
+            </div>
+            <div>
+              <strong>檔口/來源網址：</strong><br>
+              ${group.sourceUrl ? `<a href="${group.sourceUrl}" target="_blank" title="${group.sourceUrl}">${displayUrl}</a>` : `<span class="muted">無網址</span>`}
+              <div style="margin-top:6px;font-size:11px;color:#888;">廠商：${group.vendor || '無'}</div>
+            </div>
+          </div>
+          <div>${varHtml}</div>
+          <div class="mapping-section">${mappingHtml}</div>
+          <div class="actions-cell">
+            <span class="rm-group" title="排除此商品" onclick="removeGroup(${idx})">✕</span>
+          </div>
+        </div>
+      `;
+      previewContainer.appendChild(div);
+    });
+
+    // 非同步抓取 Slowand og:image
+    parsedGroups.forEach(async (group, idx) => {
+      if (!group.isNew) return; // 既有商品已經有圖
+      if (group.excelImageUrl) return; // 關鍵：如果已經有 Excel 內置圖片，不進行抓圖也不覆蓋它
+      if (!group.sourceUrl) {
+        const thumbEl = document.getElementById(`thumb_${idx}`);
+        if (thumbEl) thumbEl.innerHTML = '<span class="muted">無照片</span>';
+        return;
+      }
+      try {
+        const res = await api(`/api/owner/crawl-product-image?url=${encodeURIComponent(group.sourceUrl)}`);
+        if (res.imageUrl) {
+          group.crawlImageUrl = res.imageUrl;
+          const thumbEl = document.getElementById(`thumb_${idx}`);
+          if (thumbEl) {
+            thumbEl.innerHTML = `<img src="${res.imageUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+          }
+        } else {
+          const thumbEl = document.getElementById(`thumb_${idx}`);
+          if (thumbEl) thumbEl.innerHTML = '<span class="muted">無照片</span>';
+        }
+      } catch (e) {
+        const thumbEl = document.getElementById(`thumb_${idx}`);
+        if (thumbEl) thumbEl.innerHTML = '<span class="muted">無照片</span>';
+      }
+    });
+
+    document.getElementById('totalItemsSummary').textContent = `共解析出 ${parsedGroups.length} 款商品，合共 ${totalItems} 個變體進貨項`;
+    recalc();
+  }
+
+  // 掛載到 window 讓 inline HTML 事件能呼叫
+  window.previewImg = function(sel, idx) {
+    const prevDiv = document.getElementById(`imgPrev_${idx}`);
+    const imgEl = prevDiv.querySelector('img');
+    if (sel.value === 'excel_image') {
+      prevDiv.style.display = 'block';
+      const group = parsedGroups[idx];
+      imgEl.src = group.excelImageUrl || '';
+    } else if (sel.value.startsWith('/images/')) {
+      prevDiv.style.display = 'none';
+      imgEl.src = '';
+    } else {
+      prevDiv.style.display = 'block';
+      imgEl.src = '/media/' + sel.value;
+    }
+  };
+
+  window.toggleGroupAction = function(sel, idx) {
+    const actionEl = document.getElementById(`action_${idx}`);
+    const inputsEl = document.getElementById(`newInputs_${idx}`);
+    if (sel.value === 'new') {
+      actionEl.value = 'new';
+      inputsEl.style.display = 'grid';
+    } else {
+      actionEl.value = 'link';
+      inputsEl.style.display = 'none';
+    }
+  };
+
+  window.removeGroup = function(idx) {
+    parsedGroups.splice(idx, 1);
+    if (!parsedGroups.length) {
+      costFormCard.style.display = 'none';
+      previewCard.style.display = 'none';
+    } else {
+      renderPreview();
+    }
+  };
+
+  // 提交匯入
+  document.getElementById('submitImportBtn').addEventListener('click', async () => {
+    const date = document.getElementById('poDate').value;
+    const rate = Number(document.getElementById('poRate').value) || 0;
+    const feePct = Number(document.getElementById('poFee').value) || 0;
+    const koreaShippingKrw = Number(document.getElementById('poShipping').value) || 0;
+    const weightKg = Number(document.getElementById('poWeight').value) || 0;
+    const customsRate = Number(document.getElementById('poCustomsRate').value) || 0;
+    const note = document.getElementById('poNote').value.trim();
+
+    if (!date) return toast('請填寫進貨日期', 'error');
+    if (!rate) return toast('請填寫台幣匯率', 'error');
+
+    // 展開並取得預覽表單上的對應關係與品項
+    const items = [];
+    const rows = [...document.querySelectorAll('.group-grid')];
+    let hasError = false;
+
+    rows.forEach(row => {
+      const idx = parseInt(row.getAttribute('data-idx'));
+      const group = parsedGroups[idx];
+      if (!group) return;
+
+      const action = row.querySelector('.grp-action')?.value || row.querySelector('.link-selector')?.value;
+      let productId = '';
+      let name = '';
+      let category = '';
+      let price = 0;
+      let image = '';
+
+      if (action === 'existing') {
+        productId = row.querySelector('.grp-pid').value;
+      } else if (action === 'new') {
+        productId = row.querySelector('.new-prod-inputs .grp-pid').value.trim();
+        name = row.querySelector('.new-prod-inputs .grp-name').value.trim();
+        category = row.querySelector('.new-prod-inputs .grp-cat').value;
+        price = Number(row.querySelector('.new-prod-inputs .grp-price').value) || 0;
+        const selectedImg = row.querySelector('.new-prod-inputs .grp-img').value;
+        image = selectedImg === 'excel_image'
+          ? (group.excelImageUrl || '/images/placeholder.jpg')
+          : ((selectedImg === '/images/placeholder.jpg' && group.crawlImageUrl) ? group.crawlImageUrl : selectedImg);
+
+        if (!productId) {
+          toast('新建立的商品 ID 欄位不能為空', 'error');
+          hasError = true;
+          return;
+        }
+        if (!name) {
+          toast('新建立的商品名稱不能為空', 'error');
+          hasError = true;
+          return;
+        }
+      } else {
+        // Link to existing
+        productId = row.querySelector('.link-selector').value;
+      }
+
+      // 將該組的所有變體加入送出品項
+      group.variants.forEach(v => {
+        items.push({
+          productId,
+          name,
+          category,
+          price,
+          image,
+          color: v.color,
+          size: v.size,
+          qty: v.qty,
+          krwUnit: group.krwUnit,
+          vendor: group.vendor,
+          sourceUrl: group.sourceUrl
+        });
+      });
+    });
+
+    if (hasError) return;
+    if (!items.length) return toast('沒有任何有效品項可供匯入', 'error');
+
+    try {
+      document.getElementById('submitImportBtn').disabled = true;
+      document.getElementById('submitImportBtn').textContent = '匯入中…';
+      
+      const res = await api('/api/owner/import-excel-purchases', {
+        method: 'POST',
+        body: { date, rate, feePct, koreaShippingKrw, weightKg, customsRate, note, items }
+      });
+
+      toast('Excel 匯入完成！商品已自動上架且庫存已入庫', 'success');
+      
+      setTimeout(() => {
+        location.href = '/owner/inventory.html';
+      }, 1500);
+
+    } catch (e) {
+      toast(e.message || '匯入失敗', 'error');
+      document.getElementById('submitImportBtn').disabled = false;
+      document.getElementById('submitImportBtn').textContent = '確認匯入並登記進貨';
+    }
+  });
+
+  function recalc() {
+    const rate = Number(document.getElementById('poRate').value) || 0;
+    const fee = (Number(document.getElementById('poFee').value) || 0) / 100;
+    const kg = Number(document.getElementById('poWeight').value) || 0;
+    const koreaShipKrw = Number(document.getElementById('poShipping').value) || 0; // 每公斤韓元運費
+    const koreaShipTwd = rate > 0 ? Math.round((koreaShipKrw * kg) / rate) : 0;
+    const dutyRate = Number(document.getElementById('poCustomsRate').value) || 0;
+    const customs = Math.round(dutyRate * kg);
+    const freightCustoms = koreaShipTwd + customs;
+
+    // 計算總件數
+    let totalQty = 0;
+    parsedGroups.forEach(group => {
+      group.variants.forEach(v => {
+        totalQty += v.qty;
+      });
+    });
+
+    const allocUnit = totalQty > 0 ? freightCustoms / totalQty : 0;
+
+    // 更新每個變體的台幣成本顯示
+    parsedGroups.forEach((group, idx) => {
+      group.variants.forEach((v, vIdx) => {
+        const el = document.getElementById(`cost_${idx}_${vIdx}`);
+        if (!el) return;
+        if (rate <= 0) {
+          el.innerHTML = `—`;
+          return;
+        }
+        const goodsUnit = Math.round(group.krwUnit / rate * (1 + fee));
+        const landed = Math.round(goodsUnit + allocUnit);
+        el.innerHTML = `NT$${landed.toLocaleString()} <span class="muted" style="font-weight:normal;">(小計 NT$${(landed * v.qty).toLocaleString()})</span>`;
+      });
+    });
+  }
+
+  ['poShipping', 'poRate', 'poFee', 'poWeight', 'poCustomsRate'].forEach(id =>
+    document.getElementById(id).addEventListener('input', recalc)
+  );
+</script>
+</body>
+</html>

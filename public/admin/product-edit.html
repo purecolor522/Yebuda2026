@@ -49,8 +49,10 @@
           <div><label>售價 NT$ *</label><input name="price" type="number" min="0" required></div>
           <div><label>原價 NT$ (選填)</label><input name="originalPrice" type="number" min="0"></div>
         </div>
-        <label>庫存數</label>
-        <input name="stock" type="number" min="0" value="0">
+        <label>庫存</label>
+        <p class="muted" id="stockNote" style="font-size:12px;margin:4px 0 10px;padding:8px 10px;background:#faf7f0;border-radius:4px;">
+          庫存依「顏色 × 尺寸」分開計算，請到 <strong>老闆專區 → 進貨</strong>（入庫）或 <strong>庫存盤點</strong> 設定數量。新商品各組合預設 0。
+        </p>
         <label>標籤 (Badge)</label>
         <select name="badge">
           <option value="">無</option>

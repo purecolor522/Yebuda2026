@@ -21,6 +21,7 @@ import {
 } from './lib/owner-auth.js';
 import { checkRateLimit, recordFailure, recordSuccess } from './lib/rate-limit.js';
 import { classifyProductImage, isAvailable as aiAvailable } from './lib/ai-classify.js';
+import { supabaseEnabled, kvRead, kvWrite, uploadImageToStorage } from './lib/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, 'data');
@@ -39,8 +40,8 @@ fssync.mkdirSync(DATA_DIR, { recursive: true });
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ---- Static ----
 app.use(express.static(path.join(__dirname, 'public')));
@@ -48,7 +49,11 @@ app.use('/media',   express.static(__dirname,   { index: false }));
 app.use('/uploads', express.static(UPLOAD_DIR, { index: false }));
 
 // ---- Helpers ----
+// Map a former data-file path to its Supabase row key (products.json -> "products").
+function keyForFile(file) { return path.basename(file).replace(/\.json$/, ''); }
+
 async function readJson(file, fallback) {
+  if (supabaseEnabled) return kvRead(keyForFile(file), fallback);
   try { return JSON.parse(await fs.readFile(file, 'utf8')); }
   catch (e) {
     if (e.code === 'ENOENT') { await fs.writeFile(file, JSON.stringify(fallback, null, 2)); return fallback; }
@@ -56,6 +61,7 @@ async function readJson(file, fallback) {
   }
 }
 async function writeJson(file, data) {
+  if (supabaseEnabled) return kvWrite(keyForFile(file), data);
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
@@ -71,6 +77,53 @@ async function getProducts() {
   return list.map(normalizeProductImage);
 }
 async function rawProducts() { return readJson(PRODUCTS_FILE, []); }
+
+// ---- Variant stock (每個「顏色 × 尺寸」各自記庫存) ----
+// p.variants = [{ color, size, qty }]；p.stock = 所有變體加總（前台/舊邏輯沿用）。
+function variantDims(p) {
+  const colors = (Array.isArray(p.colors) && p.colors.length) ? p.colors
+               : (p.color ? [p.color] : ['']);
+  const sizes  = (Array.isArray(p.sizes) && p.sizes.length) ? p.sizes : ['FREE'];
+  return { colors, sizes };
+}
+// 依商品目前的 colors×sizes 重建 variants，保留已有數量、移除已不存在的組合，並更新 stock 總數。
+function syncVariants(p) {
+  const { colors, sizes } = variantDims(p);
+  const old = Array.isArray(p.variants) ? p.variants : [];
+  const next = [];
+  for (const color of colors) {
+    for (const size of sizes) {
+      const ex = old.find(v => v.color === color && v.size === size);
+      next.push({ color, size, qty: ex ? Math.max(0, Number(ex.qty) || 0) : 0 });
+    }
+  }
+  p.variants = next;
+  p.stock = next.reduce((s, v) => s + v.qty, 0);
+  return p;
+}
+function getVariant(p, color, size) {
+  if (!Array.isArray(p.variants)) return null;
+  // size defaults to FREE when a product has no real sizes
+  return p.variants.find(v => v.color === color && v.size === size)
+      || p.variants.find(v => v.color === color && (size == null || size === ''));
+}
+function recomputeStock(p) {
+  if (Array.isArray(p.variants)) p.stock = p.variants.reduce((s, v) => s + (Number(v.qty) || 0), 0);
+  return p;
+}
+// 訂單成立(付款/出貨)時，扣掉每一行對應變體的庫存。idempotent：只扣一次。
+function deductStockForOrder(order, products) {
+  if (!order || order.stockDeducted) return false;
+  for (const it of order.items || []) {
+    const p = products.find(pp => pp.id === it.productId);
+    if (!p) continue;
+    const v = getVariant(p, it.color, it.size);
+    if (v) v.qty = Math.max(0, (Number(v.qty) || 0) - (Number(it.qty) || 0));
+    recomputeStock(p);
+  }
+  order.stockDeducted = true;
+  return true;
+}
 
 // ---- Customer session cookie ----
 app.use((req, res, next) => {
@@ -556,6 +609,11 @@ app.post('/api/checkout', async (req, res) => {
       order.shipping = { ...(order.shipping || {}), ...shippingInfo };
       // Attach purchaser (orderer) if provided — recipient stays in order.customer for compat
       if (purchaser) order.purchaser = { name: purchaser.name, phone: purchaser.phone, email: purchaser.email || '' };
+      // 若訂單建立時即為已付款（例如測試用 card-mock），立即扣庫存
+      if (order.status === 'paid' && !order.stockDeducted) {
+        const prods = await rawProducts();
+        if (deductStockForOrder(order, prods)) await writeJson(PRODUCTS_FILE, prods);
+      }
       const orders = await readJson(ORDERS_FILE, []);
       orders.unshift(order);
       await writeJson(ORDERS_FILE, orders);
@@ -700,6 +758,9 @@ app.post('/api/ecpay/notify', async (req, res) => {
   if (String(data.RtnCode) === '1') {
     order.status = 'paid';
     order.payment.status = 'paid';
+    // 付款成功 → 扣掉對應變體庫存（只扣一次）
+    const products = await rawProducts();
+    if (deductStockForOrder(order, products)) await writeJson(PRODUCTS_FILE, products);
   } else {
     order.status = 'payment_failed';
     order.payment.status = 'failed';
@@ -777,11 +838,34 @@ const upload = multer({
     else cb(new Error('僅支援 JPG / PNG / WEBP / GIF'));
   }
 });
+// Memory-storage variant used when uploading straight to Supabase Storage.
+const uploadMem = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('僅支援 JPG / PNG / WEBP / GIF'));
+  }
+});
 app.post('/api/admin/upload', requireAdmin, (req, res) => {
-  upload.array('files', 10)(req, res, (err) => {
+  const handler = supabaseEnabled ? uploadMem.array('files', 10) : upload.array('files', 10);
+  handler(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
-    const urls = (req.files || []).map(f => '/uploads/' + f.filename);
-    res.json({ ok: true, urls });
+    try {
+      if (supabaseEnabled) {
+        const urls = [];
+        for (const f of req.files || []) {
+          const ext = path.extname(f.originalname).toLowerCase() || '.jpg';
+          const name = Date.now() + '-' + crypto.randomBytes(4).toString('hex') + ext;
+          urls.push(await uploadImageToStorage(f.buffer, name, f.mimetype));
+        }
+        return res.json({ ok: true, urls });
+      }
+      const urls = (req.files || []).map(f => '/uploads/' + f.filename);
+      res.json({ ok: true, urls });
+    } catch (e) {
+      res.status(500).json({ error: e.message || '圖片上傳失敗' });
+    }
   });
 });
 
@@ -814,16 +898,25 @@ app.post('/api/admin/classify', requireAdmin, (req, res) => {
         mediaType = req.file.mimetype;
       } else if (req.body?.imageUrl) {
         const url = String(req.body.imageUrl);
-        if (!url.startsWith('/uploads/')) return res.status(400).json({ error: '只接受 /uploads/ 內的圖片' });
-        const fname = path.basename(url.replace(/^\/uploads\//, ''));
-        const fpath = path.join(UPLOAD_DIR, fname);
-        const buf = await fs.readFile(fpath);
-        imageBase64 = buf.toString('base64');
-        const ext = path.extname(fname).toLowerCase();
-        mediaType = ext === '.png' ? 'image/png'
-                  : ext === '.webp' ? 'image/webp'
-                  : ext === '.gif' ? 'image/gif'
-                  : 'image/jpeg';
+        if (/^https?:\/\//.test(url)) {
+          // Supabase Storage (or any) public image URL.
+          const resp = await fetch(url);
+          if (!resp.ok) return res.status(400).json({ error: '無法讀取該圖片網址' });
+          imageBase64 = Buffer.from(await resp.arrayBuffer()).toString('base64');
+          mediaType = resp.headers.get('content-type') || 'image/jpeg';
+        } else if (url.startsWith('/uploads/')) {
+          const fname = path.basename(url.replace(/^\/uploads\//, ''));
+          const fpath = path.join(UPLOAD_DIR, fname);
+          const buf = await fs.readFile(fpath);
+          imageBase64 = buf.toString('base64');
+          const ext = path.extname(fname).toLowerCase();
+          mediaType = ext === '.png' ? 'image/png'
+                    : ext === '.webp' ? 'image/webp'
+                    : ext === '.gif' ? 'image/gif'
+                    : 'image/jpeg';
+        } else {
+          return res.status(400).json({ error: '不支援的圖片網址' });
+        }
       } else {
         return res.status(400).json({ error: '請提供 image 檔案或 imageUrl' });
       }
@@ -862,10 +955,12 @@ app.post('/api/admin/products', requireAdmin, async (req, res) => {
     originalPrice: p.originalPrice ? Number(p.originalPrice) : null,
     color: String(p.color || ''), colors: Array.isArray(p.colors) ? p.colors : [],
     sizes: Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ['FREE'],
-    badge: p.badge || null, stock: Number(p.stock ?? 0),
+    badge: p.badge || null, stock: 0,
     image: String(p.image), description: String(p.description || ''),
-    hidden: Boolean(p.hidden)
+    hidden: Boolean(p.hidden),
+    sourceUrl: String(p.sourceUrl || '')
   };
+  syncVariants(newProduct);  // 建立 colors×sizes 變體（庫存皆 0，之後由進貨/盤點填）
   products.push(newProduct);
   await writeJson(PRODUCTS_FILE, products);
   res.json({ ok: true, product: newProduct });
@@ -879,7 +974,8 @@ app.put('/api/admin/products/:id', requireAdmin, async (req, res) => {
   if (merged.price !== undefined) merged.price = Number(merged.price);
   if (merged.originalPrice !== undefined && merged.originalPrice !== null)
     merged.originalPrice = Number(merged.originalPrice) || null;
-  if (merged.stock !== undefined) merged.stock = Number(merged.stock);
+  // 顏色/尺寸可能變動 → 重建變體（保留既有數量），stock 由變體自動加總。
+  syncVariants(merged);
   products[idx] = merged;
   await writeJson(PRODUCTS_FILE, products);
   res.json({ ok: true, product: merged });
@@ -903,6 +999,12 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   if (!o) return res.status(404).json({ error: 'Not found' });
   if (req.body.status) o.status = req.body.status;
   if (req.body.trackingNo) o.trackingNo = String(req.body.trackingNo);
+  // 訂單進入「已成立」狀態時扣庫存（涵蓋超商取貨付款等手動標記；只扣一次）
+  const COMMITTED = ['paid', 'shipped', 'in_transit', 'delivered'];
+  if (COMMITTED.includes(o.status) && !o.stockDeducted) {
+    const products = await rawProducts();
+    if (deductStockForOrder(o, products)) await writeJson(PRODUCTS_FILE, products);
+  }
   await writeJson(ORDERS_FILE, orders);
   res.json({ ok: true, order: o });
 });
@@ -993,26 +1095,68 @@ app.get('/api/owner/purchases', requireOwner, async (_req, res) => {
 });
 
 app.post('/api/owner/purchases', requireOwner, async (req, res) => {
-  const { date, vendor, items, shipping, note } = req.body || {};
+  const { date, vendor, items, note,
+          rate, feePct, weightKg, customsRate, koreaShippingKrw } = req.body || {};
+  // 廠商現在是每件品項各自的屬性（一張進貨單可混多廠商）。
   if (!date || !Array.isArray(items) || !items.length) {
     return res.status(400).json({ error: '請填寫日期與至少一個品項' });
   }
-  const cleanItems = items.map(it => ({
-    productId: String(it.productId || '').trim(),
-    qty: Math.max(0, Number(it.qty) || 0),
-    unitCost: Math.max(0, Number(it.unitCost) || 0),
-  })).filter(it => it.productId && it.qty > 0);
+
+  // Landed-cost model (韓元部分用匯率換台幣，報關費為台幣)：
+  //   匯率以「1 台幣 = N 韓元」表示（換匯行報的數字，例如 44.2），故 台幣 = 韓幣 ÷ N
+  //   每件貨值(TWD) = 衣服本身(韓幣) ÷ 匯率 × (1 + 代購費率)   ← 代購費算在衣服上
+  //   韓國運費(韓幣 ÷ 匯率) + 報關費(報關費率 × 總公斤, 台幣)
+  //     → 依「數量」平均分攤到每一件
+  const exRate     = Math.max(0, Number(rate) || 0);          // 1 TWD = N KRW
+  const fee        = Math.max(0, Number(feePct) || 0) / 100;  // e.g. 3 -> 0.03
+  const kg         = Math.max(0, Number(weightKg) || 0);
+  const dutyRate   = customsRate != null ? Math.max(0, Number(customsRate) || 0) : 36; // NT$/kg
+  const koreaShipKrw = Math.max(0, Number(koreaShippingKrw) || 0);   // 韓國運費單價（韓幣/kg）
+  const koreaShipTwd = exRate > 0 ? Math.round((koreaShipKrw * kg) / exRate) : 0; // 換成台幣 (運費單價 * 重量 / 匯率)
+  const customsCost  = Math.round(dutyRate * kg);                   // 報關費（台幣）
+
+  const cleanItems = items.map(it => {
+    const qty     = Math.max(0, Number(it.qty) || 0);
+    const krwUnit = Math.max(0, Number(it.krwUnit) || 0);  // 衣服本身（韓幣單價）
+    // goods cost per unit in TWD = 韓幣 ÷ 匯率 × (1+代購費)。無匯率時退回直接給的 unitCost(舊式)。
+    const goodsUnit = exRate > 0
+      ? krwUnit / exRate * (1 + fee)
+      : Math.max(0, Number(it.unitCost) || 0);
+    return {
+      productId: String(it.productId || '').trim(),
+      vendor: String(it.vendor || '').trim(),
+      color: String(it.color || '').trim(),
+      size: String(it.size || '').trim(),
+      qty, krwUnit,
+      goodsUnit: Math.round(goodsUnit),
+    };
+  }).filter(it => it.productId && it.qty > 0);
   if (!cleanItems.length) return res.status(400).json({ error: '品項資料不完整' });
 
-  const subtotal = cleanItems.reduce((s, it) => s + it.qty * it.unitCost, 0);
-  const shippingCost = Math.max(0, Number(shipping) || 0);
+  const totalQty       = cleanItems.reduce((s, it) => s + it.qty, 0);
+  const goodsSubtotal  = cleanItems.reduce((s, it) => s + it.qty * it.goodsUnit, 0);
+  const freightCustoms = koreaShipTwd + customsCost;       // 韓國運費(台幣) + 報關費
+  const allocUnit      = totalQty > 0 ? freightCustoms / totalQty : 0; // per-unit share
+
+  // Final landed unit cost per item (goods+代購費 + allocated 韓國運費/報關).
+  for (const it of cleanItems) {
+    it.allocUnit = Math.round(allocUnit);
+    it.unitCost  = Math.round(it.goodsUnit + allocUnit); // 落地成本，寫回商品 cost
+  }
+
+  // 整批的「廠商」欄位 = 此批所有不重複廠商，供歷史列表顯示（相容舊式單一 vendor）。
+  const vendorSummary = [...new Set(cleanItems.map(it => it.vendor).filter(Boolean))].join('、')
+                        || String(vendor || '').trim();
   const purchase = {
     id: 'PO' + Date.now().toString().slice(-9) + crypto.randomInt(10, 99),
-    date, vendor: String(vendor || '').trim(),
+    date, vendor: vendorSummary,
     items: cleanItems,
-    shipping: shippingCost,
-    subtotal,
-    total: subtotal + shippingCost,
+    rate: exRate, feePct: Number(feePct) || 0, weightKg: kg, customsRate: dutyRate,
+    koreaShippingKrw: koreaShipKrw, koreaShippingTwd: koreaShipTwd,
+    customs: customsCost,
+    shipping: koreaShipTwd,    // 歷史表「運費」欄顯示台幣換算後的韓國運費
+    subtotal: goodsSubtotal,
+    total: goodsSubtotal + freightCustoms,
     note: String(note || '').trim(),
     createdAt: new Date().toISOString(),
   };
@@ -1020,13 +1164,16 @@ app.post('/api/owner/purchases', requireOwner, async (req, res) => {
   list.unshift(purchase);
   await writeJson(PURCHASES_FILE, list);
 
-  // 進貨後自動加上庫存
+  // 進貨後自動加上庫存（加到對應的「顏色 × 尺寸」變體）
   const products = await rawProducts();
   let updated = false;
   for (const it of cleanItems) {
     const p = products.find(pp => pp.id === it.productId);
     if (p) {
-      p.stock = (Number(p.stock) || 0) + it.qty;
+      syncVariants(p);  // 確保變體齊全
+      const v = getVariant(p, it.color, it.size);
+      if (v) { v.qty = (Number(v.qty) || 0) + it.qty; recomputeStock(p); }
+      else   { p.stock = (Number(p.stock) || 0) + it.qty; } // 後備：找不到變體就加總數
       // 第一次設定 cost 或更新為最新進價（簡單起見，覆寫 — 未來可改加權平均）
       if (it.unitCost > 0) p.cost = it.unitCost;
       updated = true;
@@ -1042,15 +1189,224 @@ app.delete('/api/owner/purchases/:id', requireOwner, async (req, res) => {
   const idx = list.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: '找不到此進貨記錄' });
   const removed = list.splice(idx, 1)[0];
-  // 撤銷該筆進貨增加的庫存
+  // 撤銷該筆進貨增加的庫存（從對應變體扣回）
   const products = await rawProducts();
   for (const it of removed.items) {
     const p = products.find(pp => pp.id === it.productId);
-    if (p) p.stock = Math.max(0, (Number(p.stock) || 0) - it.qty);
+    if (!p) continue;
+    const v = getVariant(p, it.color, it.size);
+    if (v) { v.qty = Math.max(0, (Number(v.qty) || 0) - it.qty); recomputeStock(p); }
+    else   { p.stock = Math.max(0, (Number(p.stock) || 0) - it.qty); }
   }
   await writeJson(PRODUCTS_FILE, products);
   await writeJson(PURCHASES_FILE, list);
   res.json({ ok: true });
+});
+
+async function saveImageFromBase64(base64Str) {
+  if (!base64Str || !base64Str.startsWith('data:image/')) {
+    return base64Str;
+  }
+  const match = base64Str.match(/^data:(image\/(jpeg|png|webp|gif|jpg));base64,(.+)$/i);
+  if (!match) return base64Str;
+
+  const mimetype = match[1];
+  const ext = '.' + mimetype.split('/')[1].replace('jpeg', 'jpg');
+  const base64Data = match[3];
+  const buffer = Buffer.from(base64Data, 'base64');
+  const filename = 'import-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex') + ext;
+
+  if (supabaseEnabled) {
+    return await uploadImageToStorage(buffer, filename, mimetype);
+  } else {
+    await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
+    return '/uploads/' + filename;
+  }
+}
+
+app.post('/api/owner/import-excel-purchases', requireOwner, async (req, res) => {
+  const { date, rate, feePct, koreaShippingKrw, weightKg, customsRate, note, items } = req.body || {};
+  if (!date || !Array.isArray(items) || !items.length) {
+    return res.status(400).json({ error: '請填寫日期與至少一個品項' });
+  }
+
+  const exRate = Math.max(0, Number(rate) || 0);          // 1 TWD = N KRW
+  const fee = Math.max(0, Number(feePct) || 0) / 100;
+  const kg = Math.max(0, Number(weightKg) || 0);
+  const dutyRate = customsRate != null ? Math.max(0, Number(customsRate) || 0) : 36;
+  const koreaShipKrw = Math.max(0, Number(koreaShippingKrw) || 0);
+  const koreaShipTwd = exRate > 0 ? Math.round((koreaShipKrw * kg) / exRate) : 0;
+  const customsCost = Math.round(dutyRate * kg);
+
+  const products = await rawProducts();
+  const cleanItems = [];
+
+  for (const it of items) {
+    const qty = Math.max(0, Number(it.qty) || 0);
+    if (qty <= 0) continue;
+
+    let p = null;
+    // 優先以 productId 比對
+    if (it.productId) {
+      p = products.find(pp => pp.id === it.productId);
+    }
+    // 其次以 sourceUrl 比對
+    if (!p && it.sourceUrl) {
+      p = products.find(pp => pp.sourceUrl === it.sourceUrl);
+    }
+
+    // 若找不到，自動建立新商品
+    if (!p) {
+      const suggestedId = it.productId || ('y' + Date.now().toString().slice(-6));
+      let finalId = suggestedId;
+      let suffix = 1;
+      while (products.some(x => x.id === finalId)) {
+        finalId = suggestedId + '_' + suffix;
+        suffix++;
+      }
+
+      // 處理 base64 圖片
+      let finalImage = String(it.image || '/images/placeholder.jpg');
+      if (finalImage.startsWith('data:image/')) {
+        try {
+          finalImage = await saveImageFromBase64(finalImage);
+        } catch (err) {
+          console.error('儲存 Excel 內置圖片失敗:', err);
+          finalImage = '/images/placeholder.jpg';
+        }
+      }
+
+      p = {
+        id: finalId,
+        name: String(it.name || '未命名商品'),
+        subtitle: 'EXCEL IMPORTED',
+        category: String(it.category || 'all'),
+        price: Number(it.price) || 0,
+        originalPrice: null,
+        color: String(it.color || ''),
+        colors: it.color ? [String(it.color)] : [],
+        sizes: it.size ? [String(it.size)] : ['FREE'],
+        badge: null,
+        stock: 0,
+        image: finalImage,
+        description: '透過 Excel 匯入自動建立。',
+        hidden: true,
+        sourceUrl: String(it.sourceUrl || '')
+      };
+      syncVariants(p);
+      products.push(p);
+    } else {
+      // 若已存在，補齊 sourceUrl 與變體
+      if (!p.sourceUrl && it.sourceUrl) {
+        p.sourceUrl = String(it.sourceUrl);
+      }
+      if (it.color && !p.colors.includes(it.color)) {
+        p.colors.push(it.color);
+      }
+      if (it.size && !p.sizes.includes(it.size)) {
+        p.sizes.push(it.size);
+      }
+      syncVariants(p);
+    }
+
+    const krwUnit = Math.max(0, Number(it.krwUnit) || 0);
+    const goodsUnit = exRate > 0 ? krwUnit / exRate * (1 + fee) : 0;
+
+    cleanItems.push({
+      productId: p.id,
+      vendor: String(it.vendor || '').trim(),
+      color: String(it.color || '').trim(),
+      size: String(it.size || '').trim(),
+      qty,
+      krwUnit,
+      goodsUnit: Math.round(goodsUnit),
+      sourceUrl: String(it.sourceUrl || '')
+    });
+  }
+
+  if (!cleanItems.length) {
+    return res.status(400).json({ error: '無有效品項資料' });
+  }
+
+  const totalQty = cleanItems.reduce((s, it) => s + it.qty, 0);
+  const goodsSubtotal = cleanItems.reduce((s, it) => s + it.qty * it.goodsUnit, 0);
+  const freightCustoms = koreaShipTwd + customsCost;
+  const allocUnit = totalQty > 0 ? freightCustoms / totalQty : 0;
+
+  for (const it of cleanItems) {
+    it.allocUnit = Math.round(allocUnit);
+    it.unitCost = Math.round(it.goodsUnit + allocUnit);
+  }
+
+  const vendorSummary = [...new Set(cleanItems.map(it => it.vendor).filter(Boolean))].join('、');
+  const purchase = {
+    id: 'PO' + Date.now().toString().slice(-9) + crypto.randomInt(10, 99),
+    date,
+    vendor: vendorSummary,
+    items: cleanItems,
+    rate: exRate,
+    feePct: Number(feePct) || 0,
+    weightKg: kg,
+    customsRate: dutyRate,
+    koreaShippingKrw: koreaShipKrw,
+    koreaShippingTwd: koreaShipTwd,
+    customs: customsCost,
+    shipping: koreaShipTwd,
+    subtotal: goodsSubtotal,
+    total: goodsSubtotal + freightCustoms,
+    note: String(note || '').trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  const list = await readJson(PURCHASES_FILE, []);
+  list.unshift(purchase);
+  await writeJson(PURCHASES_FILE, list);
+
+  // 增加庫存與更新商品落地成本
+  for (const it of cleanItems) {
+    const p = products.find(pp => pp.id === it.productId);
+    if (p) {
+      const v = getVariant(p, it.color, it.size);
+      if (v) {
+        v.qty = (Number(v.qty) || 0) + it.qty;
+      } else {
+        p.stock = (Number(p.stock) || 0) + it.qty;
+      }
+      recomputeStock(p);
+      if (it.unitCost > 0) p.cost = it.unitCost;
+    }
+  }
+
+  await writeJson(PRODUCTS_FILE, products);
+
+  res.json({ ok: true, purchase });
+});
+
+app.get('/api/owner/crawl-product-image', requireOwner, async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.startsWith('http')) {
+    return res.status(400).json({ error: '請提供有效的網址' });
+  }
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    const html = await response.text();
+    const match = html.match(/<meta property="og:image" content="([^"]+)"/) 
+               || html.match(/<meta property="og:image" content='([^']+)'/)
+               || html.match(/<link rel="image_src" href="([^"]+)"/);
+    if (match) {
+      const fullUrl = new URL(match[1], url).toString();
+      return res.json({ imageUrl: fullUrl });
+    }
+    res.json({ imageUrl: null });
+  } catch (e) {
+    console.error('Crawl failed for url', url, e);
+    res.json({ imageUrl: null });
+  }
 });
 
 // --- 庫存盤點 / 手動調整 ---
@@ -1060,19 +1416,23 @@ app.get('/api/owner/stock-adjustments', requireOwner, async (_req, res) => {
 });
 
 app.post('/api/owner/stock-adjustments', requireOwner, async (req, res) => {
-  const { productId, newStock, reason } = req.body || {};
+  const { productId, color, size, newStock, reason } = req.body || {};
   if (!productId || newStock === undefined) return res.status(400).json({ error: 'productId 與 newStock 必填' });
   const products = await rawProducts();
   const p = products.find(pp => pp.id === productId);
   if (!p) return res.status(404).json({ error: '找不到商品' });
-  const before = Number(p.stock) || 0;
+  syncVariants(p);
+  const v = getVariant(p, color, size);
+  if (!v) return res.status(404).json({ error: '找不到此顏色/尺寸的變體' });
+  const before = Number(v.qty) || 0;
   const after = Math.max(0, Number(newStock) || 0);
-  p.stock = after;
+  v.qty = after;
+  recomputeStock(p);
   await writeJson(PRODUCTS_FILE, products);
 
   const log = {
     id: 'ADJ' + Date.now().toString().slice(-9) + crypto.randomInt(10, 99),
-    productId, productName: p.name,
+    productId, productName: p.name, color: v.color, size: v.size,
     before, after, delta: after - before,
     reason: String(reason || '').trim(),
     createdAt: new Date().toISOString(),
@@ -1177,6 +1537,7 @@ app.listen(PORT, HOST, () => {
   console.log(`  Admin password: ${adminPassword()}${process.env.ADMIN_PASSWORD ? '' : ' (set ADMIN_PASSWORD env var for production)'}`);
   console.log(`  Owner password: ${ownerPassword()}${process.env.OWNER_PASSWORD ? '' : ' (set OWNER_PASSWORD env var for production)'}`);
   console.log(`  ECPay mode:  ${process.env.ECPAY_ENV === 'production' ? 'PRODUCTION' : 'STAGE (test)'}`);
+  console.log(`  Data store:  ${supabaseEnabled ? 'Supabase (cloud) ✓' : 'local data/*.json files (dev)'}`);
   // Print LAN IPs so phone testing on the same Wi-Fi is one tap away
   try {
     const nets = Object.entries(os.networkInterfaces()).flatMap(([name, addrs]) =>

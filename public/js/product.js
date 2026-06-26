@@ -13,6 +13,15 @@ let product;
 let selectedSize;
 let selectedColor;
 
+// Stock for the currently selected 顏色 × 尺寸 variant.
+function getVariantStock(color, size) {
+  if (Array.isArray(product?.variants) && product.variants.length) {
+    const v = product.variants.find(x => x.color === color && x.size === size);
+    return v ? Math.max(0, Number(v.qty) || 0) : 0;
+  }
+  return Math.max(0, Number(product?.stock) || 0); // 後備
+}
+
 async function load() {
   product = await api(`/api/products/${id}`);
   selectedSize = product.sizes?.[0] || 'FREE';
@@ -62,10 +71,10 @@ function renderPDP() {
         <div class="label">數量 · Quantity</div>
         <div class="qty-ctrl">
           <button data-act="dec">−</button>
-          <input id="qty" type="number" min="1" max="${product.stock}" value="1">
+          <input id="qty" type="number" min="1" max="${getVariantStock(selectedColor, selectedSize)}" value="1">
           <button data-act="inc">+</button>
         </div>
-        <div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">現貨 ${product.stock} 件</div>
+        <div id="stock-line" style="font-size:12px;color:var(--ink-soft);margin-top:8px;"></div>
       </div>
 
       <div class="pdp-actions">
@@ -83,32 +92,61 @@ function renderPDP() {
       </div>
     </div>`;
 
+  // Reflect the selected variant's stock in the qty cap, stock line, and buttons.
+  function updateStockUI() {
+    const stock = getVariantStock(selectedColor, selectedSize);
+    const qtyInput = host.querySelector('#qty');
+    const line = host.querySelector('#stock-line');
+    const addBtn = host.querySelector('#add-btn');
+    const buyBtn = host.querySelector('#buy-btn');
+    qtyInput.max = stock;
+    if (stock <= 0) {
+      line.innerHTML = `<span style="color:#c84436;">此顏色／尺寸已售完</span>`;
+      qtyInput.value = 0; qtyInput.disabled = true;
+      addBtn.disabled = buyBtn.disabled = true;
+      addBtn.style.opacity = buyBtn.style.opacity = '.45';
+    } else {
+      line.innerHTML = `現貨 ${stock} 件`;
+      qtyInput.disabled = false;
+      if (Number(qtyInput.value) < 1) qtyInput.value = 1;
+      if (Number(qtyInput.value) > stock) qtyInput.value = stock;
+      addBtn.disabled = buyBtn.disabled = false;
+      addBtn.style.opacity = buyBtn.style.opacity = '1';
+    }
+  }
+
   // wire events
   host.querySelector('#color-pills').addEventListener('click', (e) => {
     const b = e.target.closest('.opt-pill'); if (!b) return;
     selectedColor = b.dataset.color;
     host.querySelectorAll('#color-pills .opt-pill').forEach(x => x.classList.toggle('selected', x === b));
+    updateStockUI();
   });
   host.querySelector('#size-pills').addEventListener('click', (e) => {
     const b = e.target.closest('.opt-pill'); if (!b) return;
     selectedSize = b.dataset.size;
     host.querySelectorAll('#size-pills .opt-pill').forEach(x => x.classList.toggle('selected', x === b));
+    updateStockUI();
   });
   const qtyInput = host.querySelector('#qty');
   host.querySelectorAll('[data-act]').forEach(btn => {
     btn.addEventListener('click', () => {
+      const stock = getVariantStock(selectedColor, selectedSize);
       let v = Number(qtyInput.value) || 1;
       v = btn.dataset.act === 'inc' ? v + 1 : v - 1;
-      v = Math.max(1, Math.min(product.stock, v));
+      v = Math.max(1, Math.min(stock, v));
       qtyInput.value = v;
     });
   });
   host.querySelector('#add-btn').addEventListener('click', () => addToCart(false));
   host.querySelector('#buy-btn').addEventListener('click', () => addToCart(true));
+  updateStockUI();
 }
 
 async function addToCart(goCheckout) {
-  const qty = Math.max(1, Number(document.getElementById('qty').value) || 1);
+  const stock = getVariantStock(selectedColor, selectedSize);
+  if (stock <= 0) { toast('此顏色／尺寸已售完'); return; }
+  const qty = Math.max(1, Math.min(stock, Number(document.getElementById('qty').value) || 1));
   try {
     await api('/api/cart', {
       method: 'POST',

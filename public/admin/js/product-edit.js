@@ -21,7 +21,6 @@ if (id) {
       form.description.value = p.description || '';
       form.price.value = p.price;
       form.originalPrice.value = p.originalPrice ?? '';
-      form.stock.value = p.stock;
       form.badge.value = p.badge || '';
       form.hidden.checked = !!p.hidden;
       form.color.value = p.color || '';
@@ -176,7 +175,6 @@ document.getElementById('save-btn').addEventListener('click', async (e) => {
     description: data.description,
     price: Number(data.price),
     originalPrice: data.originalPrice ? Number(data.originalPrice) : null,
-    stock: Number(data.stock) || 0,
     badge: data.badge || null,
     hidden: !!data.hidden,
     color: data.color,

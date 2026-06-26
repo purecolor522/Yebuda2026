@@ -11,7 +11,7 @@
   .new-purchase .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   .new-purchase label { display: block; font-size: 11px; color: #888; letter-spacing: 1.5px; margin-bottom: 4px; }
   .new-purchase .inp { width: 100%; }
-  .item-row { display: grid; grid-template-columns: 2fr 80px 110px 110px 30px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .item-row { display: grid; grid-template-columns: 1.8fr 1.1fr 90px 80px 60px 100px 110px 24px; gap: 6px; margin-bottom: 8px; align-items: center; }
   .item-row select, .item-row input { padding: 8px 10px; font-size: 13px; border: 1px solid #d8d0c0; border-radius: 3px; outline: none; }
   .item-row .rm { color: #c84436; cursor: pointer; text-align: center; font-size: 18px; }
   .item-total { font-size: 13px; color: #888; text-align: right; padding-right: 10px; }
@@ -34,17 +34,28 @@
       <h1>進貨記錄</h1>
       <p class="crumbs">Inventory · 進貨會自動加到對應商品的庫存</p>
     </div>
+    <div>
+      <a href="/owner/excel-import.html" class="btn btn-primary" style="font-size:12px;padding:8px 16px;">📊 Excel 匯入代買單</a>
+    </div>
   </header>
 
   <!-- 新增進貨 -->
   <div class="new-purchase">
     <h2 style="font-size:14px;letter-spacing:2px;font-weight:600;color:#555;margin-bottom:14px;">＋ 新增進貨單</h2>
+    <p class="muted" style="font-size:11px;margin:0 0 12px;">一張進貨單 = 一次集運：可混多個廠商，共用同一組匯率／代購費／韓國運費／報關費。廠商填在每一筆品項上。</p>
     <div class="row">
       <div><label>進貨日期</label><input type="date" id="poDate" class="inp"></div>
-      <div><label>廠商 / 供應商</label><input type="text" id="poVendor" class="inp" placeholder="例：韓國 ABC 服飾"></div>
-      <div><label>運費 / 報關費</label><input type="number" id="poShipping" class="inp" placeholder="0" min="0"></div>
+      <div><label>匯率（1 台幣 = ? 韓元）</label><input type="number" id="poRate" class="inp" step="0.1" min="0" placeholder="例：44.2"></div>
+      <div><label>代購手續費率 (%)</label><input type="number" id="poFee" class="inp" step="0.1" min="0" value="3"></div>
     </div>
-    <label style="font-size:11px;color:#888;letter-spacing:1.5px;">品項（自動加進該商品庫存）</label>
+    <div class="row">
+      <div><label>韓國運費單價 (₩/kg 韓幣)</label><input type="number" id="poShipping" class="inp" placeholder="0" min="0"></div>
+      <div><label>總重量 (kg)</label><input type="number" id="poWeight" class="inp" step="0.1" min="0" placeholder="例：10"></div>
+      <div><label>報關費率 (NT$/kg)</label><input type="number" id="poCustomsRate" class="inp" step="1" min="0" value="36"></div>
+    </div>
+    <datalist id="vendorList"></datalist>
+    <p class="muted" id="poBatchInfo" style="font-size:11px;margin:2px 0 10px;"></p>
+    <label style="font-size:11px;color:#888;letter-spacing:1.5px;">品項（每筆選廠商＋填韓幣單價，系統自動換算台幣落地成本並加進庫存）</label>
     <div id="poItems"></div>
     <button type="button" class="btn btn-ghost btn-xs" id="addItemBtn">+ 增加一筆品項</button>
     <div style="margin-top:14px;">
@@ -96,6 +107,20 @@ async function loadAll() {
   products.sort((a, b) => a.id.localeCompare(b.id));
   renderItems();
   renderHistory();
+  renderVendorOptions();
+}
+
+// Build the vendor dropdown from distinct vendor names used in past purchases.
+function renderVendorOptions() {
+  const all = [];
+  purchases.forEach(p => {
+    if (p.vendor) all.push(p.vendor);                          // 舊式：整批一個廠商
+    (p.items || []).forEach(it => { if (it.vendor) all.push(it.vendor); }); // 新式：每件廠商
+  });
+  const names = [...new Set(all.map(v => v.trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  document.getElementById('vendorList').innerHTML =
+    names.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
 function renderItems() {
@@ -111,62 +136,122 @@ function addItemRow() {
   const opts = products.map(p =>
     `<option value="${p.id}">${p.id} · ${p.name}</option>`
   ).join('');
+  // Pre-fill vendor with the previous row's vendor (a batch often has runs of same-vendor items).
+  const lastVendor = [...root.querySelectorAll('.poVendor')].pop()?.value || '';
   div.innerHTML = `
     <select class="poProduct"><option value="">— 選擇商品 —</option>${opts}</select>
-    <input type="number" class="poQty" min="1" placeholder="數量">
-    <input type="number" class="poUnitCost" min="0" step="1" placeholder="單價成本">
+    <input type="text" class="poVendor" list="vendorList" placeholder="廠商" autocomplete="off" value="${lastVendor.replace(/"/g, '&quot;')}">
+    <select class="poColor" disabled><option value="">顏色</option></select>
+    <select class="poSize" disabled><option value="">尺寸</option></select>
+    <input type="number" class="poQty" min="1" value="1" placeholder="數量">
+    <input type="number" class="poKrw" min="0" step="1" placeholder="韓幣單價 ₩">
     <div class="item-total">—</div>
     <span class="rm" title="移除">✕</span>`;
   root.appendChild(div);
+  // When a product is chosen, fill its colour & size dropdowns.
+  const prodSel = div.querySelector('.poProduct');
+  prodSel.addEventListener('change', () => { fillVariantSelects(div); recalc(); });
   div.querySelectorAll('input,select').forEach(el => el.addEventListener('input', recalc));
   div.querySelector('.rm').addEventListener('click', () => { div.remove(); recalc(); });
   recalc();
 }
 
+// Populate the colour/size dropdowns of a row from its selected product.
+function fillVariantSelects(row) {
+  const p = products.find(x => x.id === row.querySelector('.poProduct').value);
+  const colorSel = row.querySelector('.poColor');
+  const sizeSel  = row.querySelector('.poSize');
+  if (!p) {
+    colorSel.innerHTML = '<option value="">顏色</option>'; colorSel.disabled = true;
+    sizeSel.innerHTML  = '<option value="">尺寸</option>';  sizeSel.disabled  = true;
+    return;
+  }
+  const colors = (p.colors && p.colors.length) ? p.colors : (p.color ? [p.color] : ['']);
+  const sizes  = (p.sizes && p.sizes.length) ? p.sizes : ['FREE'];
+  colorSel.innerHTML = colors.map(c => `<option value="${c}">${c || '—'}</option>`).join('');
+  sizeSel.innerHTML  = sizes.map(s => `<option value="${s}">${s}</option>`).join('');
+  colorSel.disabled = false; sizeSel.disabled = false;
+}
+
 function recalc() {
-  let total = 0;
-  document.querySelectorAll('.item-row').forEach(row => {
+  const rate       = Number(document.getElementById('poRate').value) || 0;
+  const fee         = (Number(document.getElementById('poFee').value) || 0) / 100;
+  const kg          = Number(document.getElementById('poWeight').value) || 0;
+  const koreaShipKrw = Number(document.getElementById('poShipping').value) || 0; // 韓幣
+  const koreaShipTwd = rate > 0 ? Math.round((koreaShipKrw * kg) / rate) : 0;           // 換台幣 (運費單價 * 重量 / 匯率)
+  const dutyRate    = Number(document.getElementById('poCustomsRate').value) || 0;
+  const customs     = Math.round(dutyRate * kg);
+  const freightCustoms = koreaShipTwd + customs;
+
+  // First pass: goods cost + total quantity
+  const rows = [...document.querySelectorAll('.item-row')];
+  let totalQty = 0, goodsSubtotal = 0;
+  const rowData = rows.map(row => {
     const qty = Number(row.querySelector('.poQty').value) || 0;
-    const cost = Number(row.querySelector('.poUnitCost').value) || 0;
-    const sub = qty * cost;
-    row.querySelector('.item-total').textContent = sub ? TWD(sub) : '—';
-    total += sub;
+    const krw = Number(row.querySelector('.poKrw').value) || 0;
+    const goodsUnit = rate > 0 ? Math.round(krw / rate * (1 + fee)) : 0;
+    totalQty += qty;
+    goodsSubtotal += qty * goodsUnit;
+    return { row, qty, goodsUnit };
   });
-  const shipping = Number(document.getElementById('poShipping').value) || 0;
-  const grand = total + shipping;
+  const allocUnit = totalQty > 0 ? freightCustoms / totalQty : 0;
+
+  // Second pass: show each item's landed unit cost + line subtotal
+  rowData.forEach(({ row, qty, goodsUnit }) => {
+    if (!qty || !goodsUnit) { row.querySelector('.item-total').textContent = '—'; return; }
+    const landed = Math.round(goodsUnit + allocUnit);
+    row.querySelector('.item-total').innerHTML =
+      `${TWD(landed)}/件<br><small class="muted">小計 ${TWD(landed * qty)}</small>`;
+  });
+
+  document.getElementById('poBatchInfo').innerHTML = (koreaShipKrw || kg || dutyRate)
+    ? `韓國運費 ₩${koreaShipKrw.toLocaleString()} ≈ ${TWD(koreaShipTwd)}　|　報關費 ${dutyRate}/kg × ${kg}kg = ${TWD(customs)}　|　每件分攤 ≈ ${TWD(Math.round(allocUnit))}`
+    : '';
+
+  const grand = goodsSubtotal + freightCustoms;
   document.getElementById('poSummary').innerHTML = grand
-    ? `小計 ${TWD(total)} + 運費 ${TWD(shipping)} = <strong style="font-size:16px;color:#2c2a26;">${TWD(grand)}</strong>`
+    ? `貨值(含${(fee*100)||0}%代購費) ${TWD(goodsSubtotal)} + 韓國運費 ${TWD(koreaShipTwd)} + 報關 ${TWD(customs)} = <strong style="font-size:16px;color:#2c2a26;">${TWD(grand)}</strong>`
     : '尚未加入品項';
 }
 
 document.getElementById('addItemBtn').addEventListener('click', addItemRow);
-document.getElementById('poShipping').addEventListener('input', recalc);
+['poShipping','poRate','poFee','poWeight','poCustomsRate'].forEach(id =>
+  document.getElementById(id).addEventListener('input', recalc));
 
 document.getElementById('savePoBtn').addEventListener('click', async () => {
   const date = document.getElementById('poDate').value;
-  const vendor = document.getElementById('poVendor').value.trim();
-  const shipping = Number(document.getElementById('poShipping').value) || 0;
+  const koreaShippingKrw = Number(document.getElementById('poShipping').value) || 0;
+  const rate = Number(document.getElementById('poRate').value) || 0;
+  const feePct = Number(document.getElementById('poFee').value) || 0;
+  const weightKg = Number(document.getElementById('poWeight').value) || 0;
+  const customsRate = Number(document.getElementById('poCustomsRate').value) || 0;
   const note = document.getElementById('poNote').value.trim();
   const items = [...document.querySelectorAll('.item-row')].map(row => ({
     productId: row.querySelector('.poProduct').value,
+    vendor: row.querySelector('.poVendor').value.trim(),
+    color: row.querySelector('.poColor').value,
+    size: row.querySelector('.poSize').value,
     qty: Number(row.querySelector('.poQty').value) || 0,
-    unitCost: Number(row.querySelector('.poUnitCost').value) || 0,
+    krwUnit: Number(row.querySelector('.poKrw').value) || 0,
   })).filter(it => it.productId && it.qty > 0);
 
   if (!date) return toast('請選擇進貨日期', 'error');
+  if (!rate) return toast('請填寫匯率', 'error');
   if (!items.length) return toast('請至少加入一筆有效品項', 'error');
+  if (items.some(it => !it.color || !it.size)) return toast('每筆品項都要選顏色與尺寸', 'error');
 
   try {
     await api('/api/owner/purchases', {
       method: 'POST',
-      body: { date, vendor, items, shipping, note },
+      body: { date, items, koreaShippingKrw, note, rate, feePct, weightKg, customsRate },
     });
     toast('進貨單已儲存，庫存已更新', 'success');
     // Reset form
     document.getElementById('poItems').innerHTML = '';
-    document.getElementById('poVendor').value = '';
     document.getElementById('poShipping').value = '';
+    document.getElementById('poWeight').value = '';
     document.getElementById('poNote').value = '';
+    // 保留匯率/手續費率/報關費率（同期進貨常常一樣，省得重打）
     addItemRow();
     recalc();
     await loadAll();
@@ -183,7 +268,9 @@ function renderHistory() {
     const itemSummary = p.items.map(it => {
       const prod = products.find(pp => pp.id === it.productId);
       const name = prod ? prod.name : it.productId;
-      return `${name} ×${it.qty} <small>@ ${TWD(it.unitCost)}</small>`;
+      const v = it.vendor ? `<small class="muted">[${it.vendor}]</small> ` : '';
+      const variant = (it.color || it.size) ? ` <small class="muted">${[it.color, it.size].filter(Boolean).join('/')}</small>` : '';
+      return `${v}${name}${variant} ×${it.qty} <small>@ ${TWD(it.unitCost)}</small>`;
     }).join('<br>');
     return `<tr class="purchase-row" data-id="${p.id}">
       <td><strong>${p.id}</strong><div class="muted" style="font-size:11px;">${p.date}</div></td>
