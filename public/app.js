@@ -3,6 +3,36 @@ let cart = [];
 let wishlist = new Set(JSON.parse(localStorage.getItem('yebuda_wishlist')) || []);
 let currentCustomer = null;
 
+// ===== 顏色中文名 → CSS 色碼（商品卡色點用，關鍵字比對，繁簡與複合名皆可）=====
+const COLOR_MAP = [
+  [['黑', '墨', '炭'], '#1f1f1f'],
+  [['奶油', '米白', '象牙', '米色'], '#efe7d6'],
+  [['白'], '#f3efe6'],
+  [['裸', '膚', '藕', '豆沙'], '#d8b9a6'],
+  [['駝', '卡其', '杏', '沙色', '奶茶', '焦糖', '咖啡', '咖', '可可', '巧克力', '棕', '茶色', '摩卡', '燕麥'], '#a9824f'],
+  [['銀', '深灰', '淺灰', '灰', '鐵'], '#9b9b9b'],
+  [['珊瑚', '蜜桃', '櫻', '桃', '粉'], '#e79bb0'],
+  [['酒紅', '磚', '棗', '紅', '红'], '#b5392f'],
+  [['橘', '橙', '南瓜'], '#df8638'],
+  [['芥末', '鵝黃', '鵝黄', '奶黃', '檸檬', '黃', '黄'], '#e0bf48'],
+  [['抹茶', '薄荷', '橄欖', '軍綠', '草綠', '墨綠', '綠', '绿', '青'], '#5e7d51'],
+  [['丹寧', '牛仔', '海軍', '靛', '天藍', '天蓝', '寶藍', '藏青', '藍', '蓝'], '#46699e'],
+  [['薰衣草', '丁香', '紫'], '#8a6aa6'],
+  [['金'], '#c8a96b'],
+];
+function colorToCss(name) {
+  const s = String(name || '').trim();
+  if (!s) return null;
+  // 已是 CSS 色碼或英文色名 → 直接用
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s) || /^(rgb|hsl)\(/i.test(s) || /^[a-z]+$/i.test(s)) return s;
+  for (const [keys, hex] of COLOR_MAP) {
+    if (keys.some(k => s.includes(k))) return hex;
+  }
+  return null; // 認不出 → 由呼叫端給中性底色
+}
+function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
+function escAttr(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
+
 // ===== AUTH HELPERS =====
 function getToken() { return localStorage.getItem('yebuda_token'); }
 function authHeaders() { const t = getToken(); return t ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` } : { 'Content-Type': 'application/json' }; }
@@ -228,6 +258,7 @@ async function init() {
   renderProducts('bestGrid', products.filter(p => p.badge === 'BEST' || p.badge === 'HOT').slice(0, 4));
   renderLookbook();
   renderInsta();
+  await applyHomeSettings();   // 先套用後台設定的 Hero/Banner，再初始化輪播
   initHeroSlider();
   bindEvents();
   initScrollAnimations();
@@ -255,7 +286,10 @@ function renderProducts(container, items) {
     const discount = orig > p.price ? Math.round((1 - p.price / orig) * 100) : 0;
     const badgeClass = p.badge === 'NEW' ? 'badge-new' : p.badge === 'BEST' ? 'badge-best' : p.badge === 'HOT' ? 'badge-sale' : '';
     const wished = wishlist.has(p.id);
-    const colorsHtml = (p.colors || []).map(c => `<span class="color-dot" style="background:${c}"></span>`).join('');
+    const colorsHtml = (p.colors || []).map(c => {
+      const css = colorToCss(c) || '#d8d8d8'; // 認不出的顏色給中性灰
+      return `<span class="color-dot" style="background:${css}" title="${String(c).replace(/"/g, '&quot;')}"></span>`;
+    }).join('');
 
     // Hover image swap: if product has at least one extraImage, show it on hover
     const altImage = (Array.isArray(p.extraImages) && p.extraImages[0]) ? p.extraImages[0] : null;
@@ -318,6 +352,40 @@ function renderInsta() {
     </a>`
   ).join('');
 }
+
+// ===== 首頁設定（Hero 輪播 + Lookbook 橫幅，由後台編輯）=====
+async function applyHomeSettings() {
+  let s;
+  try { s = await (await fetch('/api/home-settings')).json(); }
+  catch { return; } // 讀取失敗就沿用 index.html 既有內容
+  const hero = document.getElementById('hero');
+  if (hero && Array.isArray(s.hero) && s.hero.length) {
+    const slides = s.hero.map((sl, i) => `
+      <div class="hero-slide${i === 0 ? ' active' : ''}"><img src="${escAttr(sl.image)}" alt="${escAttr(sl.title)}" style="object-position:${focusPos(sl.focus || 'center')}">
+        <div class="hero-overlay">
+          ${sl.title ? `<h2>${escHtml(sl.title)}</h2>` : ''}
+          ${sl.subtitle ? `<p>${escHtml(sl.subtitle)}</p>` : ''}
+          ${sl.btnText ? `<a href="${escAttr(sl.btnLink || '#products')}" class="hero-btn">${escHtml(sl.btnText)}</a>` : ''}
+        </div>
+      </div>`).join('');
+    hero.innerHTML = slides
+      + '<div class="hero-arrows"><button class="hero-arrow" id="heroPrev">‹</button><button class="hero-arrow" id="heroNext">›</button></div>'
+      + '<div class="hero-dots" id="heroDots"></div>';
+  }
+  const b = s.lookbookBanner;
+  const banner = document.querySelector('.banner-section');
+  if (banner && b) {
+    banner.innerHTML = `
+      <img src="${escAttr(b.image)}" alt="Lookbook" style="object-position:${focusPos(b.focus || 'top')}">
+      <div class="banner-overlay">
+        ${b.title ? `<h2>${escHtml(b.title)}</h2>` : ''}
+        ${b.subtitle ? `<p>${escHtml(b.subtitle)}</p>` : ''}
+        ${b.btnText ? `<a href="${escAttr(b.btnLink || '#lookbook')}" class="hero-btn">${escHtml(b.btnText)}</a>` : ''}
+      </div>`;
+  }
+}
+// 焦點 → object-position（避免裁切時切到頭：靠上顯示頭部）
+function focusPos(f) { return f === 'top' ? 'center top' : f === 'bottom' ? 'center bottom' : 'center center'; }
 
 // ===== HERO SLIDER =====
 let heroIndex = 0;

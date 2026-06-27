@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首頁設定 · YEBUDA Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+<style>
+  .hs-section { background:#fff; border:1px solid #e8e4df; border-radius:8px; padding:20px; margin-bottom:22px; }
+  .hs-section > h2 { font-size:16px; font-weight:600; margin-bottom:4px; }
+  .hs-section > .muted { font-size:12px; margin-bottom:16px; }
+  .hs-card { display:flex; gap:16px; border:1px solid #ece7e0; border-radius:8px; padding:14px; margin-bottom:14px; background:#fbfaf7; }
+  .hs-thumb { width:120px; flex-shrink:0; }
+  .hs-thumb .pv { width:120px; height:150px; object-fit:cover; object-position:left center; border-radius:5px; border:1px solid #d8d4cf; background:#f0ece4; display:block; }
+  .hs-thumb .btn-ghost { width:100%; margin-top:8px; font-size:12px; padding:7px; }
+  .hs-fields { flex:1; display:flex; flex-direction:column; gap:8px; }
+  .hs-fields label { font-size:11px; color:#888; letter-spacing:0.08em; }
+  .hs-fields input { width:100%; padding:8px 10px; border:1px solid #e0dcd5; border-radius:4px; font-family:inherit; font-size:13px; outline:none; }
+  .hs-fields input:focus { border-color:#c9a96e; }
+  .hs-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .hs-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+  .hs-del { background:none; border:none; color:#c84436; cursor:pointer; font-size:12px; }
+  .hs-actions { display:flex; gap:10px; justify-content:flex-end; position:sticky; bottom:0; background:rgba(247,244,239,0.95); padding:14px 0; }
+</style>
+</head>
+<body>
+<div id="shell"></div>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>首頁設定</h1>
+      <p class="crumbs">控制首頁的 Hero 輪播與 Lookbook 大橫幅</p>
+    </div>
+    <div class="head-actions">
+      <a href="/" target="_blank" class="btn-ghost">查看前台 ↗</a>
+    </div>
+  </header>
+
+  <section class="hs-section">
+    <h2>Hero 輪播</h2>
+    <p class="muted">首頁最上方的大圖輪播。可新增/刪除張數、換圖、改標題與按鈕文字。</p>
+    <div id="heroList"></div>
+    <button id="addSlideBtn" class="btn-ghost">+ 新增一張輪播</button>
+  </section>
+
+  <section class="hs-section">
+    <h2>Lookbook 大橫幅</h2>
+    <p class="muted">Best Sellers 上方那張全寬橫幅。</p>
+    <div id="bannerBox"></div>
+  </section>
+
+  <div class="hs-actions">
+    <button id="reloadBtn" class="btn-ghost">還原未存變更</button>
+    <button id="saveBtn" class="btn-primary">儲存並套用</button>
+  </div>
+</main>
+<script type="module" src="/admin/js/admin-app.js"></script>
+<script type="module" src="/admin/js/home-settings.js"></script>
+</body>
+</html>

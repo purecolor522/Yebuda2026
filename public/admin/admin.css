@@ -245,7 +245,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   border-bottom: 1px solid var(--line);
 }
 .best-row:last-child { border-bottom: none; }
-.best-row img { width: 44px; height: 58px; object-fit: cover; }
+.best-row img { width: 44px; height: 58px; object-fit: cover; object-position: left center; }
 .best-row .qty { font-weight: 600; color: var(--brand-dark); }
 .best-row .rev { font-size: 11px; color: var(--ink-soft); }
 .recent-orders { display: flex; flex-direction: column; gap: 0; }
@@ -293,7 +293,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .admin-table tbody tr:hover { background: var(--bg); }
 .admin-table img.thumb {
-  width: 50px; height: 66px; object-fit: cover;
+  width: 50px; height: 66px; object-fit: cover; object-position: left center;
   border: 1px solid var(--line);
 }
 .admin-table .name { font-weight: 500; }

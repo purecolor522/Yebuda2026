@@ -81,6 +81,9 @@ export function renderShell(active) {
         <a href="/admin/orders.html" class="${is('orders.html') ? 'active' : ''}">
           <span class="ic">✧</span> Orders 訂單
         </a>
+        <a href="/admin/home-settings.html" class="${is('home-settings.html') ? 'active' : ''}">
+          <span class="ic">⬚</span> 首頁設定
+        </a>
         <a href="/" target="_blank">
           <span class="ic">↗</span> 查看前台
         </a>

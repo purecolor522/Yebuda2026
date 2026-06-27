@@ -34,6 +34,17 @@ const CARTS_FILE      = path.join(DATA_DIR, 'carts.json');
 const CUSTOMERS_FILE  = path.join(DATA_DIR, 'customers.json');
 const PURCHASES_FILE  = path.join(DATA_DIR, 'purchases.json');
 const STOCKADJ_FILE   = path.join(DATA_DIR, 'stock-adjustments.json');
+const SETTINGS_FILE   = path.join(DATA_DIR, 'settings.json');
+
+// 首頁可由後台編輯的內容（Hero 輪播 + Lookbook 大橫幅）。預設值＝原本寫死的內容。
+const DEFAULT_HOME_SETTINGS = {
+  hero: [
+    { image: 'images/LINE_ALBUM_2026424_260507_10.jpg', title: 'Summer Collection', subtitle: '2025 夏季新品全面上架', btnText: 'SHOP NOW', btnLink: '#products', focus: 'center' },
+    { image: 'images/LINE_ALBUM_2026424_260507_20.jpg', title: '清新自在',          subtitle: '每一天都值得漂亮出門', btnText: '探索更多',  btnLink: '#products', focus: 'center' },
+    { image: 'images/LINE_ALBUM_2026424_260507_24.jpg', title: '韓系日常',          subtitle: '打造屬於你的風格',   btnText: '立即選購',  btnLink: '#products', focus: 'center' },
+  ],
+  lookbookBanner: { image: 'images/LINE_ALBUM_2026424_260507_15.jpg', title: 'Yebuda Lookbook', subtitle: '穿出你的故事，記錄每個美好瞬間', btnText: 'VIEW LOOKBOOK', btnLink: '#lookbook', focus: 'top' },
+};
 
 fssync.mkdirSync(UPLOAD_DIR, { recursive: true });
 fssync.mkdirSync(DATA_DIR, { recursive: true });
@@ -43,8 +54,51 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// ---- 靜態資源版本戳記（防止客人看到舊版 JS/CSS）----
+// 版本＝public 內所有 js/css 的最新修改時間；檔案一變、版本就變，瀏覽器自動抓新版。
+const PUBLIC_DIR = path.join(__dirname, 'public');
+function computeAssetVersion() {
+  let latest = 0;
+  const scan = (dir) => {
+    for (const f of fssync.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, f.name);
+      if (f.isDirectory()) scan(full);
+      else if (/\.(js|css)$/.test(f.name)) {
+        const m = fssync.statSync(full).mtimeMs;
+        if (m > latest) latest = m;
+      }
+    }
+  };
+  try { scan(PUBLIC_DIR); } catch {}
+  return String(Math.round(latest)) || '1';
+}
+const ASSET_VERSION = computeAssetVersion();
+function stampHtml(html) {
+  const addV = (url) => /^https?:\/\//.test(url) ? url : url + (url.includes('?') ? '&' : '?') + 'v=' + ASSET_VERSION;
+  // CSS：全部戳記
+  html = html.replace(/(<link\b[^>]*\bhref=")([^"]+\.css)(")/g, (m, a, url, c) => a + addV(url) + c);
+  // JS：只戳記「非 module」的傳統 script（module 的 import 路徑無法一併戳記，避免重複載入）
+  html = html.replace(/<script\b[^>]*>/g, (tag) => {
+    if (/type=["']module["']/.test(tag)) return tag;
+    return tag.replace(/(\bsrc=")([^"]+\.js)(")/, (m, a, url, c) => a + addV(url) + c);
+  });
+  return html;
+}
+// 在靜態服務之前攔截 .html（含 / 與 /admin/ 等目錄首頁），回傳戳記過版本的內容
+app.get(/(?:^\/$|\/$|\.html$)/, async (req, res, next) => {
+  let rel = decodeURIComponent(req.path);
+  if (rel.endsWith('/')) rel += 'index.html';
+  if (!rel.endsWith('.html')) return next();
+  const file = path.join(PUBLIC_DIR, rel);
+  if (!file.startsWith(PUBLIC_DIR)) return next(); // 防路徑穿越
+  try {
+    const html = await fs.readFile(file, 'utf8');
+    res.set('Cache-Control', 'no-cache').type('html').send(stampHtml(html));
+  } catch { next(); }
+});
+
 // ---- Static ----
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(PUBLIC_DIR));
 app.use('/media',   express.static(__dirname,   { index: false }));
 app.use('/uploads', express.static(UPLOAD_DIR, { index: false }));
 
@@ -986,6 +1040,45 @@ app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
   if (next.length === products.length) return res.status(404).json({ error: 'Not found' });
   await writeJson(PRODUCTS_FILE, next);
   res.json({ ok: true });
+});
+
+// ---- 首頁設定（Hero 輪播 + Lookbook 橫幅）----
+// 公開讀取（首頁渲染用）；缺漏欄位以預設補齊。
+app.get('/api/home-settings', async (_req, res) => {
+  const saved = await readJson(SETTINGS_FILE, {});
+  res.json({
+    hero: Array.isArray(saved.hero) && saved.hero.length ? saved.hero : DEFAULT_HOME_SETTINGS.hero,
+    lookbookBanner: saved.lookbookBanner || DEFAULT_HOME_SETTINGS.lookbookBanner,
+  });
+});
+// 後台編輯（僅 admin）。
+app.put('/api/admin/home-settings', requireAdmin, async (req, res) => {
+  const body = req.body || {};
+  const clean = await readJson(SETTINGS_FILE, {});
+  const okFocus = f => (['top', 'center', 'bottom'].includes(f) ? f : 'center');
+  if (Array.isArray(body.hero)) {
+    clean.hero = body.hero.slice(0, 8).map(s => ({
+      image: String(s.image || '').trim(),
+      title: String(s.title || '').trim(),
+      subtitle: String(s.subtitle || '').trim(),
+      btnText: String(s.btnText || '').trim(),
+      btnLink: String(s.btnLink || '#products').trim(),
+      focus: okFocus(s.focus),
+    })).filter(s => s.image);
+  }
+  if (body.lookbookBanner) {
+    const b = body.lookbookBanner;
+    clean.lookbookBanner = {
+      image: String(b.image || '').trim(),
+      title: String(b.title || '').trim(),
+      subtitle: String(b.subtitle || '').trim(),
+      btnText: String(b.btnText || 'VIEW LOOKBOOK').trim(),
+      btnLink: String(b.btnLink || '#lookbook').trim(),
+      focus: okFocus(b.focus),
+    };
+  }
+  await writeJson(SETTINGS_FILE, clean);
+  res.json({ ok: true, settings: clean });
 });
 
 // Orders (protected)
