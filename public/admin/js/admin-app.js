@@ -75,6 +75,9 @@ export function renderShell(active) {
         <a href="/admin/products.html" class="${is('products.html') || is('product-edit.html') ? 'active' : ''}">
           <span class="ic">◉</span> Products 商品
         </a>
+        <a href="/admin/publish.html" class="${is('publish.html') ? 'active' : ''}">
+          <span class="ic">▲</span> 待上架 上架
+        </a>
         <a href="/admin/orders.html" class="${is('orders.html') ? 'active' : ''}">
           <span class="ic">✧</span> Orders 訂單
         </a>

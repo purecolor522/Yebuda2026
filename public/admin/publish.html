@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>待上架批次上架 · YEBUDA Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+<style>
+  .pub-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:18px; margin-top:20px; }
+  .pub-card { border:1px solid #e8e4df; border-radius:8px; background:#fff; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .pub-card.skip { opacity:0.45; }
+  .pub-card.done { opacity:0.5; pointer-events:none; }
+  .pub-card .pc-img { aspect-ratio:3/4; background:#f4f1ec; position:relative; }
+  .pub-card .pc-img img { width:100%; height:100%; object-fit:cover; object-position:left center; }
+  .pub-card .pc-status { position:absolute; top:8px; left:8px; padding:4px 10px; font-size:11px; letter-spacing:0.08em; background:rgba(255,255,255,0.95); border-radius:4px; }
+  .pub-card .pc-status.loading { color:#9a7b2e; }
+  .pub-card .pc-status.ok { color:#3f6e3a; }
+  .pub-card .pc-status.err { color:#c84436; }
+  .pub-card .pc-check { position:absolute; top:8px; right:8px; width:30px; height:30px; }
+  .pub-card .pc-check input { width:22px; height:22px; cursor:pointer; accent-color:#c9a96e; }
+  .pub-card .pc-body { padding:14px; display:flex; flex-direction:column; gap:8px; }
+  .pub-card .pc-name { font-size:14px; font-weight:600; color:#1f1d1a; }
+  .pub-card .pc-meta { font-size:12px; color:#8c8274; line-height:1.6; }
+  .pub-card .pc-price strong { color:#3f6e3a; font-size:16px; }
+  .pub-card .pc-replace { margin-top:4px; }
+  .pub-card .pc-replace .btn-ghost { width:100%; font-size:12px; padding:8px; }
+  .pub-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px; background:#f4f1ec; border-radius:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .pub-summary { font-size:14px; }
+  .pub-summary strong { color:#3f6e3a; font-size:18px; }
+  .pub-hint { font-size:12px; color:#8c8274; margin-top:4px; }
+  .pub-empty { text-align:center; padding:60px 20px; color:#888; border:2px dashed #d8d4cf; border-radius:8px; }
+  .pub-empty p { margin-top:12px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="shell"></div>
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1>待上架批次上架</h1>
+      <p class="crumbs"><a href="/admin/products.html">商品</a> · 待上架草稿</p>
+    </div>
+    <div class="head-actions">
+      <a href="/admin/products.html" class="btn-ghost">返回商品列表</a>
+    </div>
+  </header>
+
+  <section class="pub-toolbar">
+    <div>
+      <div class="pub-summary">
+        待上架：<strong id="totalCount">0</strong> 件 ／ 已勾選：<strong id="keepCount">0</strong> 件
+      </div>
+      <div class="pub-hint">新款草稿（Excel）：AI 命名＋售價自動＝落地成本 × <span id="markupLabel">1.5</span>（進位到十位）。舊庫存草稿：保留原名與售價，只直接上架。顏色與庫存皆不變動。</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button id="refreshBtn" class="btn-ghost">↻ 重新整理</button>
+      <button id="selectAllBtn" class="btn-ghost">全選 / 全不選</button>
+      <button id="publishBtn" class="btn-primary" disabled>🤖 批次 AI 上架</button>
+    </div>
+  </section>
+
+  <p class="muted" id="aiStatusBar"></p>
+
+  <div id="grid" class="pub-grid"></div>
+
+  <div id="emptyState" class="pub-empty">
+    <h3 style="font-weight:500;">📦 目前沒有待上架的草稿</h3>
+    <p>新款：到老闆專區「Excel 進貨匯入」入庫後會出現在這裡。<br>舊庫存：到「🤖 AI 批次新增」勾選「先存為草稿」建立後也會出現在這裡。</p>
+  </div>
+</main>
+<script type="module" src="/admin/js/admin-app.js"></script>
+<script type="module" src="/admin/js/publish.js"></script>
+</body>
+</html>

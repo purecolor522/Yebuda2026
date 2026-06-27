@@ -98,7 +98,7 @@
     </div>
     <div id="previewContainer"></div>
     <div style="margin-top: 24px; padding-top: 18px; border-top: 1px dashed #d8d0c0; text-align: right;">
-      <button type="button" class="btn btn-primary" id="submitImportBtn">確認匯入並登記進貨</button>
+      <button type="button" class="btn btn-primary" id="submitImportBtn">全部入庫（建立待上架草稿）</button>
     </div>
   </div>
 </main>
@@ -550,44 +550,15 @@
           <input type="hidden" class="grp-pid" value="${group.matchedProductId}">
         `;
       } else {
-        // 新商品：自訂 ID 或是 關聯到既有商品
-        const randId = 'y' + Date.now().toString().slice(-6) + Math.floor(Math.random()*10);
-        const optHtml = products.map(p => 
-          `<option value="${p.id}">${p.id} · ${p.name}</option>`
-        ).join('');
-
-        let localImgOptions = imgOptions;
-        if (group.excelImageUrl) {
-          localImgOptions = `<option value="excel_image">— Excel 內置照片 (預設) —</option>` + imgOptions;
-        }
-
+        // 待上架草稿：入庫時不需命名／定價／配圖，
+        // 之後到「待上架批次上架」頁一鍵 AI 命名、自動定價、逐件換圖。
         mappingHtml = `
-          <div class="status-badge new">＋ 全新商品 (未關聯)</div>
-          <select class="link-selector" onchange="toggleGroupAction(this, ${idx})">
-            <option value="new">手動建立新商品</option>
-            <option value="">— 關聯至已存在商品 —</option>
-            ${optHtml}
-          </select>
-          <div class="new-prod-inputs" id="newInputs_${idx}">
-            <input type="text" placeholder="自訂商品 ID (例: y099)" class="grp-pid" value="${randId}">
-            <input type="text" placeholder="中文品名" class="grp-name" value="${group.tempName}">
-            <select class="grp-cat">
-              <option value="blouse">上衣</option>
-              <option value="pants">下身</option>
-              <option value="dress">洋裝</option>
-              <option value="outer">外套</option>
-              <option value="suit">套裝</option>
-              <option value="all">其他</option>
-            </select>
-            <input type="number" placeholder="售價 NT$" class="grp-price" value="0" min="0">
-            <select class="grp-img" onchange="previewImg(this, ${idx})" style="grid-column: span 2;">
-              ${localImgOptions}
-            </select>
-            <div id="imgPrev_${idx}" style="margin-top: 6px; ${group.excelImageUrl ? '' : 'display: none;'} grid-column: span 2; text-align: left;">
-              <img src="${group.excelImageUrl || ''}" style="width: 80px; height: 80px; object-fit: cover; object-position: left center; border: 1px solid #d8d0c0; border-radius: 3px;">
-            </div>
+          <div class="status-badge new">＋ 待上架草稿</div>
+          <div style="font-size:12px;color:#8c8274;line-height:1.6;">
+            入庫後自動建立為草稿（未上架）。<br>
+            命名／售價／換圖都到「<strong>待上架批次上架</strong>」頁一鍵完成。
           </div>
-          <input type="hidden" class="grp-action" id="action_${idx}" value="new">
+          <input type="hidden" class="grp-action" value="new">
         `;
       }
 
@@ -702,90 +673,64 @@
     if (!date) return toast('請填寫進貨日期', 'error');
     if (!rate) return toast('請填寫台幣匯率', 'error');
 
-    // 展開並取得預覽表單上的對應關係與品項
+    // 直接從解析結果建立品項：新商品一律入庫為「待上架草稿」，
+    // 不需在此命名／定價／配圖（交給後續的待上架批次上架頁）。
     const items = [];
-    const rows = [...document.querySelectorAll('.group-grid')];
-    let hasError = false;
+    parsedGroups.forEach(group => {
+      if (!group || !group.variants || !group.variants.length) return;
 
-    rows.forEach(row => {
-      const idx = parseInt(row.getAttribute('data-idx'));
-      const group = parsedGroups[idx];
-      if (!group) return;
-
-      const action = row.querySelector('.grp-action')?.value || row.querySelector('.link-selector')?.value;
-      let productId = '';
-      let name = '';
-      let category = '';
-      let price = 0;
-      let image = '';
-
-      if (action === 'existing') {
-        productId = row.querySelector('.grp-pid').value;
-      } else if (action === 'new') {
-        productId = row.querySelector('.new-prod-inputs .grp-pid').value.trim();
-        name = row.querySelector('.new-prod-inputs .grp-name').value.trim();
-        category = row.querySelector('.new-prod-inputs .grp-cat').value;
-        price = Number(row.querySelector('.new-prod-inputs .grp-price').value) || 0;
-        const selectedImg = row.querySelector('.new-prod-inputs .grp-img').value;
-        image = selectedImg === 'excel_image'
-          ? (group.excelImageUrl || '/images/placeholder.jpg')
-          : ((selectedImg === '/images/placeholder.jpg' && group.crawlImageUrl) ? group.crawlImageUrl : selectedImg);
-
-        if (!productId) {
-          toast('新建立的商品 ID 欄位不能為空', 'error');
-          hasError = true;
-          return;
-        }
-        if (!name) {
-          toast('新建立的商品名稱不能為空', 'error');
-          hasError = true;
-          return;
-        }
+      let productId, name = '', category = '', price = 0, image = '';
+      if (group.isNew) {
+        productId = group.tempId || '';
+        name = group.tempName || '待命名商品';
+        category = 'all';                       // 暫定，AI 上架時會改成正確分類
+        price = 0;                              // 待上架頁自動定價（落地成本 × 倍率）
+        image = group.excelImageUrl || group.crawlImageUrl || '/images/placeholder.jpg';
       } else {
-        // Link to existing
-        productId = row.querySelector('.link-selector').value;
+        // 比對到既有商品 → 只補庫存（後端依 productId/sourceUrl 自動綁定）
+        productId = group.matchedProductId;
       }
 
-      // 將該組的所有變體加入送出品項
       group.variants.forEach(v => {
         items.push({
-          productId,
-          name,
-          category,
-          price,
-          image,
-          color: v.color,
-          size: v.size,
-          qty: v.qty,
-          krwUnit: group.krwUnit,
-          vendor: group.vendor,
-          sourceUrl: group.sourceUrl
+          productId, name, category, price, image,
+          color: v.color, size: v.size, qty: v.qty,
+          krwUnit: group.krwUnit, vendor: group.vendor, sourceUrl: group.sourceUrl
         });
       });
     });
 
-    if (hasError) return;
     if (!items.length) return toast('沒有任何有效品項可供匯入', 'error');
 
     try {
       document.getElementById('submitImportBtn').disabled = true;
-      document.getElementById('submitImportBtn').textContent = '匯入中…';
-      
-      const res = await api('/api/owner/import-excel-purchases', {
-        method: 'POST',
-        body: { date, rate, feePct, koreaShippingKrw, weightKg, customsRate, note, items }
-      });
+      document.getElementById('submitImportBtn').textContent = '入庫中…';
 
-      toast('Excel 匯入完成！商品已自動上架且庫存已入庫', 'success');
-      
+      const body = { date, rate, feePct, koreaShippingKrw, weightKg, customsRate, note, items };
+      let res = await api('/api/owner/import-excel-purchases', { method: 'POST', body });
+
+      // 防重複匯入：後端偵測到相同品項時會回傳 duplicate，讓你確認後再強制匯入
+      if (res && res.duplicate) {
+        const go = confirm(`${res.message}\n\n仍要再匯入一次嗎？（會再加一次庫存）`);
+        if (!go) {
+          toast('已取消，未重複匯入', 'info');
+          document.getElementById('submitImportBtn').disabled = false;
+          document.getElementById('submitImportBtn').textContent = '全部入庫（建立待上架草稿）';
+          return;
+        }
+        res = await api('/api/owner/import-excel-purchases', { method: 'POST', body: { ...body, force: true } });
+      }
+
+      toast('已入庫！商品建立為「待上架草稿」，到後台『待上架批次上架』命名＋定價＋換圖', 'success');
+
       setTimeout(() => {
         location.href = '/owner/inventory.html';
-      }, 1500);
+      }, 2000);
 
     } catch (e) {
       toast(e.message || '匯入失敗', 'error');
       document.getElementById('submitImportBtn').disabled = false;
-      document.getElementById('submitImportBtn').textContent = '確認匯入並登記進貨';
+      document.getElementById('submitImportBtn').textContent = '全部入庫（建立待上架草稿）';
     }
   });
 

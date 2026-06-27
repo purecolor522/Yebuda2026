@@ -52,6 +52,9 @@
       <button id="retryFailedBtn" class="btn-ghost" title="重試 AI 辨識失敗的項目（會放慢速度避免 rate limit）">↻ 重試失敗的</button>
       <button id="defaultCatBtn" class="btn-ghost" title="一次將所有商品設為相同分類" style="display:none">📁 統一設分類</button>
       <button id="defaultPriceBtn" class="btn-ghost" title="一次給所有未填價格的商品設定相同售價">💰 統一設售價</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer;" title="先建為下架草稿，之後到「盤點」補好數量，再到「待上架批次上架」一鍵上架。適合舊庫存。">
+        <input type="checkbox" id="draftMode" style="width:16px;height:16px;accent-color:#c9a96e;"> 先存為草稿（不上架）
+      </label>
       <button id="saveAllBtn" class="btn-primary" disabled>儲存全部商品</button>
     </div>
   </section>

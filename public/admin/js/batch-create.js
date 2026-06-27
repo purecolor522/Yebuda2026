@@ -276,6 +276,8 @@ async function saveAll() {
   saveAllBtn.disabled = true;
   saveAllBtn.textContent = '儲存中 0 / ' + toSave.length;
 
+  const asDraft = !!document.getElementById('draftMode')?.checked;
+
   let ok = 0, fail = 0;
   for (const c of toSave) {
     const payload = {
@@ -289,7 +291,7 @@ async function saveAll() {
       colors: c.colorsInput.value.split(',').map(s => s.trim()).filter(Boolean),
       sizes:  c.sizesInput.value.split(',').map(s => s.trim()).filter(Boolean),
       image:  c.imageUrl,
-      hidden: false,
+      hidden: asDraft,   // 勾「先存為草稿」→ 下架草稿，盤點後到待上架頁一鍵上架
     };
     try {
       await api('/api/admin/products', { method: 'POST', body: payload });

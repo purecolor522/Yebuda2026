@@ -1225,9 +1225,26 @@ async function saveImageFromBase64(base64Str) {
 }
 
 app.post('/api/owner/import-excel-purchases', requireOwner, async (req, res) => {
-  const { date, rate, feePct, koreaShippingKrw, weightKg, customsRate, note, items } = req.body || {};
+  const { date, rate, feePct, koreaShippingKrw, weightKg, customsRate, note, items, force } = req.body || {};
   if (!date || !Array.isArray(items) || !items.length) {
     return res.status(400).json({ error: '請填寫日期與至少一個品項' });
+  }
+
+  // 防重複匯入：用品項內容（來源/顏色/尺寸/件數/韓幣單價）算指紋，
+  // 同一批已匯入過就先擋下（需 force 才繼續）。在任何寫入/上傳圖片前先檢查。
+  const fpBasis = items
+    .map(it => `${String(it.sourceUrl || it.vendor || '').trim()}|${String(it.color || '').trim()}|${String(it.size || '').trim()}|${Number(it.qty) || 0}|${Number(it.krwUnit) || 0}`)
+    .sort().join('||');
+  const fingerprint = crypto.createHash('sha1').update(fpBasis).digest('hex');
+  const existingPurchases = await readJson(PURCHASES_FILE, []);
+  const dup = existingPurchases.find(p => p.fingerprint === fingerprint);
+  if (dup && !force) {
+    return res.json({
+      duplicate: true,
+      existingId: dup.id,
+      existingDate: dup.date,
+      message: `這批品項的內容跟先前的進貨單一模一樣（${dup.date}，單號 ${dup.id}），可能是重複匯入。`
+    });
   }
 
   const exRate = Math.max(0, Number(rate) || 0);          // 1 TWD = N KRW
@@ -1355,12 +1372,12 @@ app.post('/api/owner/import-excel-purchases', requireOwner, async (req, res) => 
     subtotal: goodsSubtotal,
     total: goodsSubtotal + freightCustoms,
     note: String(note || '').trim(),
+    fingerprint,
     createdAt: new Date().toISOString(),
   };
 
-  const list = await readJson(PURCHASES_FILE, []);
-  list.unshift(purchase);
-  await writeJson(PURCHASES_FILE, list);
+  existingPurchases.unshift(purchase);
+  await writeJson(PURCHASES_FILE, existingPurchases);
 
   // 增加庫存與更新商品落地成本
   for (const it of cleanItems) {
